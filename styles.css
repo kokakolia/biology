@@ -189,6 +189,27 @@ progress::-moz-progress-bar { border-radius: 99px; background: linear-gradient(1
 .lesson-button.secondary { border-color: var(--glass-rim); background: var(--glass-control); }
 .lesson-button.secondary:hover { background: #e4efe3; }
 
+@media (prefers-reduced-motion: no-preference) {
+  .stage canvas, .photo-art img, .find-feedback:not(:empty) {
+    animation: lesson-fade-in 180ms ease-out both;
+  }
+  .selection-bar, .reference, .find-summary {
+    animation: lesson-reveal 200ms ease-out both;
+  }
+  .lesson-button, .icon-button, .view-controls button, .context-controls button, .organ-row, .lesson-card {
+    transition: color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+  }
+  .organ-preview img { transition: opacity 150ms ease; }
+}
+
+@keyframes lesson-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes lesson-reveal {
+  from { opacity: 0; translate: 0 5px; }
+}
+
 @media (pointer: coarse) {
   .hint-pointer { display: none; }
   .hint-touch { display: inline; }

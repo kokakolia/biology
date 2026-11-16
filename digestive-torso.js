@@ -2,11 +2,13 @@ export const digestiveTorso = {
   label: "Вращаемая модель торса с шестью органами пищеварения",
   model: {
     url: new URL("./assets/organ-material-trial.glb", import.meta.url).href,
+    compressedUrl: new URL("./assets/organ-material-trial.meshopt.glb", import.meta.url).href,
     // BodyParts3D uses Z up and negative Y anterior. Both GLBs share this frame.
     transform: { rotation: [-Math.PI / 2, 0, 0], center: [-0.0445, -90.1375, 1085], scale: 1 / 680 },
   },
   context: {
     url: new URL("./assets/body-context.glb", import.meta.url).href,
+    compressedUrl: new URL("./assets/body-context.meshopt.glb", import.meta.url).href,
     async buildLayers(scene) {
       const { createBodyContextLayers } = await import("./body-context.js");
       return createBodyContextLayers(scene);

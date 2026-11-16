@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "./vendor/meshopt_decoder.mjs";
 
 function addLighting(scene) {
   const key = new THREE.DirectionalLight(0xffefdf, 2.0);
@@ -19,6 +20,14 @@ function createAnatomy({ rotation, center, scale }) {
 }
 
 function renderThumbnails(renderer, anatomy, organs) {
+  const thumbnails = new Map();
+  const missing = [];
+  for (const [id, organ] of organs) {
+    if (organ.thumbnail) thumbnails.set(id, organ.thumbnail);
+    else missing.push([id, organ]);
+  }
+  if (!missing.length) return thumbnails;
+
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .01, 12);
   const group = new THREE.Group();
@@ -30,8 +39,7 @@ function renderThumbnails(renderer, anatomy, organs) {
   renderer.setPixelRatio(1);
   renderer.setSize(120, 104, false);
 
-  const thumbnails = new Map();
-  for (const [id, organ] of organs) {
+  for (const [id, organ] of missing) {
     const mesh = organ.mesh.clone();
     group.add(mesh);
     const bounds = new THREE.Box3().setFromObject(mesh, true);
@@ -50,7 +58,6 @@ function renderThumbnails(renderer, anatomy, organs) {
     thumbnails.set(id, renderer.domElement.toDataURL("image/png"));
     group.remove(mesh);
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   return thumbnails;
 }
 
@@ -93,11 +100,15 @@ function attachPicking(canvas, camera, organs, onPick, isReady) {
   });
 }
 
+function loadModel(loader, asset) {
+  return loader.loadAsync((loader.meshoptDecoder && asset.compressedUrl) || asset.url);
+}
+
 async function loadOrgans(loader, model, ghostHidden) {
-  const { scene: models } = await loader.loadAsync(model.url);
+  const { scene: models } = await loadModel(loader, model);
   const organs = new Map();
   const partsGroup = new THREE.Group();
-  for (const [id, { meshName = id, thumbnailAngle = .16 }] of Object.entries(model.organs)) {
+  for (const [id, { meshName = id, thumbnailAngle = .16, thumbnail, photo }] of Object.entries(model.organs)) {
     const mesh = models.getObjectByName(meshName);
     if (!mesh?.isMesh) throw new Error(`Missing organ mesh: ${meshName}`);
     if (!mesh.material.emissive) throw new Error(`Organ mesh needs a material with emissive color: ${meshName}`);
@@ -105,7 +116,7 @@ async function loadOrgans(loader, model, ghostHidden) {
     material.emissive.set(material.userData.displayColor ?? material.color);
     material.emissiveIntensity = 0;
     mesh.material = material;
-    const organ = { mesh, material, thumbnailAngle, removed: false };
+    const organ = { mesh, material, thumbnailAngle, thumbnail: thumbnail ?? photo, removed: false };
     if (ghostHidden) {
       organ.ghost = material.clone();
       organ.ghost.transparent = true;
@@ -139,6 +150,10 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
   addLighting(scene);
 
   const loader = new GLTFLoader();
+  if ((model.compressedUrl || context?.compressedUrl) && MeshoptDecoder.supported) {
+    const decoderReady = await MeshoptDecoder.ready.then(() => true, () => false);
+    if (decoderReady) loader.setMeshoptDecoder(MeshoptDecoder);
+  }
   let organs;
   let thumbnails;
   try {
@@ -147,6 +162,7 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
     organs = result.organs;
     anatomy.add(result.partsGroup);
     thumbnails = renderThumbnails(renderer, anatomy, organs);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   } catch (error) {
     renderer.dispose();
     renderer.forceContextLoss();
@@ -159,11 +175,13 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
   controls.enablePan = false;
   [controls.minDistance, controls.maxDistance] = cameraConfig.zoomRange;
   const views = new Map(Object.entries(cameraConfig.views).map(([id, { target, direction }]) => [
-    id, { target, direction: new THREE.Vector3(...direction).normalize() },
+    id, { target: new THREE.Vector3(...target), direction: new THREE.Vector3(...direction).normalize() },
   ]));
   const viewingDirection = new THREE.Vector3();
   let homeDistance = cameraConfig.distance;
   let selected = null;
+  let viewFrame = 0;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function render() {
     if (isReady()) renderer.render(scene, camera);
@@ -181,11 +199,52 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
     render();
   }
 
-  function setView(id) {
-    const view = views.get(id);
-    controls.target.fromArray(view.target);
+  function cancelViewAnimation() {
+    cancelAnimationFrame(viewFrame);
+    viewFrame = 0;
+  }
+
+  function applyView(view) {
+    controls.target.copy(view.target);
     camera.position.copy(view.direction).multiplyScalar(homeDistance).add(controls.target);
     controls.update();
+  }
+
+  function setView(id, animate = true) {
+    const view = views.get(id);
+    cancelViewAnimation();
+    if (!animate || reducedMotion.matches) {
+      applyView(view);
+      return;
+    }
+
+    const startTarget = controls.target.clone();
+    const start = new THREE.Spherical().setFromVector3(viewingDirection.subVectors(camera.position, startTarget));
+    const end = new THREE.Spherical().setFromVector3(view.direction);
+    const theta = end.theta - start.theta;
+    const turn = Math.atan2(Math.sin(theta), Math.cos(theta));
+    const zoom = start.radius / homeDistance;
+    const startTime = performance.now();
+
+    function frame(now) {
+      viewFrame = 0;
+      const progress = Math.min(1, (now - startTime) / 420);
+      if (progress === 1 || reducedMotion.matches) {
+        applyView(view);
+        return;
+      }
+      const eased = progress * progress * (3 - 2 * progress);
+      controls.target.lerpVectors(startTarget, view.target, eased);
+      camera.position.setFromSphericalCoords(
+        THREE.MathUtils.lerp(zoom, 1, eased) * homeDistance,
+        THREE.MathUtils.lerp(start.phi, end.phi, eased),
+        start.theta + turn * eased,
+      ).add(controls.target);
+      controls.update();
+      viewFrame = requestAnimationFrame(frame);
+    }
+
+    viewFrame = requestAnimationFrame(frame);
   }
 
   function setSelection(id) {
@@ -208,11 +267,14 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
     render();
   });
   resize();
-  setView(cameraConfig.initialView);
+  setView(cameraConfig.initialView, false);
+  canvas.addEventListener("pointerdown", cancelViewAnimation, { capture: true });
+  canvas.addEventListener("wheel", cancelViewAnimation, { capture: true, passive: true });
   if (onPick) attachPicking(canvas, camera, organs, onPick, isReady);
   canvas.addEventListener("webglcontextlost", (event) => {
     event.preventDefault();
     contextLost = true;
+    cancelViewAnimation();
     controls.enabled = false;
     onContextChange?.(false);
   });
@@ -242,7 +304,7 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
     setView,
     async loadContext() {
       if (!context) return;
-      const { scene: contextScene } = await loader.loadAsync(context.url);
+      const { scene: contextScene } = await loadModel(loader, context);
       layers = await context.buildLayers(contextScene);
       for (const layer of Object.values(layers)) anatomy.add(layer);
       render();
