@@ -10,13 +10,15 @@
 .find-lesson .visibility { width: 33px; height: 33px; }
 .find-lesson .selection { width: auto; }
 .find-lesson .selection .lesson-button { min-width: 108px; min-height: 35px; }
-.find-response { --error-text: #784021; --error-background: #fff1e4; margin-bottom: 12px; }
+.find-lesson, .photo-lesson { --error-text: #784021; --error-background: #fff1e4; }
+.find-response { margin-bottom: 12px; }
 .find-response:has(.find-feedback:empty) { display: none; }
 .find-feedback { margin: 0; border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 650; line-height: 1.35; }
-.find-feedback[data-kind="retry"], .find-feedback[data-kind="missed"], #next-task { color: var(--error-text); background: var(--error-background); }
+.find-feedback[data-kind="retry"], .find-feedback[data-kind="missed"], #next-task, #confirm-organ[data-kind="missed"] { color: var(--error-text); background: var(--error-background); }
 .find-feedback[data-kind="correct"] { color: #235838; background: #e2f4e2; }
-#next-task { display: flex; width: max-content; margin: 8px 0 0 auto; border-color: #ebc9ae; }
-#next-task:hover { border-color: #af7651; }
+#next-task { display: flex; width: max-content; margin: 8px 0 0 auto; }
+#next-task, #confirm-organ[data-kind="missed"] { border-color: #ebc9ae; }
+#next-task:hover, #confirm-organ[data-kind="missed"]:hover { border-color: #af7651; }
 .find-summary { max-width: 620px; margin: 0 auto 8px; padding: clamp(19px, 4vw, 34px); border: 1px solid var(--glass-rim); border-radius: 24px; background: var(--glass-panel); box-shadow: var(--glass-shadow); }
 .find-summary .lesson-topic { margin: 5px 0 8px; }
 .find-summary h1 { font-size: clamp(32px, 4.4vw, 49px); }

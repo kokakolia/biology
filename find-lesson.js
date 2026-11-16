@@ -16,15 +16,18 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, study, fi
   const prompt = document.querySelector("#find-prompt");
   const attempt = document.querySelector("#find-attempt");
   const feedback = document.querySelector("#find-feedback");
-  const next = document.querySelector("#next-task");
   const confirm = document.querySelector("#confirm-organ");
   const selection = document.querySelector("#selection");
   const remove = document.querySelector("#remove");
   const progress = document.querySelector("#progress");
   const percent = document.querySelector("#progress-percent");
 
+  function isComplete(run) {
+    return run?.feedback === "correct" || run?.feedback === "missed";
+  }
+
   function updateConfirm(run) {
-    confirm.disabled = run?.feedback === "missed" || (run?.feedback !== "correct" && !scene.isReady());
+    confirm.disabled = !isComplete(run) && !scene.isReady();
   }
 
   function render(state, { focus = false, savedCredits } = {}) {
@@ -41,20 +44,18 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, study, fi
     scene.ensureLoaded();
     const position = run.total - run.queue.length + 1;
     const reviewing = run.phase === "review";
-    const correct = run.feedback === "correct";
-    const missed = run.feedback === "missed";
-    const complete = correct || missed;
+    const complete = isComplete(run);
     studyButton.hidden = complete;
     phase.textContent = `${reviewing ? "Закрепление" : "Основной круг"} · ${position} из ${run.total}`;
     prompt.textContent = section.parts[task.id].prompt;
     attempt.textContent = `Попытка ${complete ? task.attempts : task.attempts + 1} из ${attemptLimit}`;
     renderQuizProgress(progress, percent, state, partIds.length);
     scene.setLocked(complete);
-    selection.hidden = !correct && !scene.selected();
-    remove.hidden = correct && !scene.selected();
-    confirm.textContent = correct ? "Дальше" : "Подтвердить";
+    selection.hidden = !complete && !scene.selected();
+    remove.hidden = complete && !scene.selected();
+    confirm.textContent = complete ? "Дальше" : "Подтвердить";
+    confirm.dataset.kind = run.feedback ?? "";
     updateConfirm(run);
-    next.hidden = !missed;
     feedback.dataset.kind = run.feedback ?? "";
     feedback.textContent = quizFeedback(run, task, section.copy);
     if (focus) prompt.focus();
@@ -75,7 +76,7 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, study, fi
   });
   confirm.addEventListener("click", (event) => {
     if (!page.isActive() || event.detail > 1) return;
-    if (page.state.run.feedback === "correct") {
+    if (isComplete(page.state.run)) {
       advance();
     } else if (scene.isReady()) {
       const selected = scene.selected();
@@ -84,10 +85,8 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, study, fi
         answerQuizTask(state, selected);
         if (state.run.feedback === "retry") scene.clearSelection();
       });
-      if (!next.hidden) next.focus();
     }
   });
-  next.addEventListener("click", advance);
   reviewButton.addEventListener("click", () => {
     page.change(({ run }) => startQuizReview(run), { reset: true, focus: true });
   });
