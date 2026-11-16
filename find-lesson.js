@@ -5,7 +5,7 @@ import {
   answerQuizTask, attemptLimit, nextQuizTask, startQuizReview,
 } from "./quiz-progress.js";
 
-export function startFindLesson(scene, section, { keys, partIds, quiz, findUnlockCount }) {
+export function startFindLesson(scene, section, { keys, partIds, quiz, study, findUnlockCount }) {
   const layout = document.querySelector(".find-layout");
   const studyButton = document.querySelector("[data-study-current]");
   const summary = document.querySelector("#find-summary");
@@ -23,13 +23,17 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, findUnloc
   const progress = document.querySelector("#progress");
   const percent = document.querySelector("#progress-percent");
 
-  function render(state, { focus = false } = {}) {
+  function updateConfirm(run) {
+    confirm.disabled = run?.feedback === "missed" || (run?.feedback !== "correct" && !scene.isReady());
+  }
+
+  function render(state, { focus = false, savedCredits } = {}) {
     const { run } = state;
     const task = run.queue[0];
     layout.hidden = !task;
     summary.hidden = Boolean(task);
     if (!task) {
-      renderQuizSummary(summary, state, section, findUnlockCount);
+      renderQuizSummary(summary, state, section, savedCredits >= findUnlockCount);
       if (focus) summaryTitle.focus();
       return;
     }
@@ -49,7 +53,7 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, findUnloc
     selection.hidden = !correct && !scene.selected();
     remove.hidden = correct && !scene.selected();
     confirm.textContent = correct ? "Дальше" : "Подтвердить";
-    confirm.disabled = missed;
+    updateConfirm(run);
     next.hidden = !missed;
     feedback.dataset.kind = run.feedback ?? "";
     feedback.textContent = quizFeedback(run, task, section.copy);
@@ -58,17 +62,22 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, findUnloc
 
   const page = connectQuizPage(keys.find, quiz, {
     taskView: layout, summary, render, reset: scene.reset, studyHref: sectionHref(section, "study"),
+    homeHref: sectionHref(section, "home"),
+    canEnter: () => study.read().size >= study.unlockCount,
   });
 
   function advance() {
     page.change(({ run }) => nextQuizTask(run), { reset: true, focus: true });
   }
 
+  confirm.addEventListener("keydown", (event) => {
+    if ((event.key === "Enter" || event.key === " ") && event.repeat) event.preventDefault();
+  });
   confirm.addEventListener("click", (event) => {
     if (!page.isActive() || event.detail > 1) return;
     if (page.state.run.feedback === "correct") {
       advance();
-    } else {
+    } else if (scene.isReady()) {
       const selected = scene.selected();
       if (!selected) return;
       page.change((state) => {
@@ -85,4 +94,5 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, findUnloc
   repeatButton.addEventListener("click", () => {
     page.change(quiz.begin, { reset: true, focus: true });
   });
+  return { updateModelAvailability: () => updateConfirm(page.state?.run) };
 }

@@ -13,12 +13,13 @@ export function createQuizProgress(partIds) {
     const seen = new Set();
     const tasks = [];
     for (const entry of value) {
-      const { id, attempts, answer, corrected } = entry ?? {};
+    const { id, attempts, answer, corrected, lastAnswer } = entry ?? {};
       if (!knownParts.has(id) || seen.has(id) || !Number.isInteger(attempts) || attempts < 0 || attempts > maxAttempts) continue;
       seen.add(id);
       const task = { id, attempts };
       if (typeof answer === "string") task.answer = answer;
       if (typeof corrected === "boolean") task.corrected = corrected;
+    if (typeof lastAnswer === "string") task.lastAnswer = lastAnswer;
       tasks.push(task);
     }
     return tasks;
@@ -65,7 +66,7 @@ export function createQuizProgress(partIds) {
     };
   }
 
-  function readQuizProgress(key) {
+  function readSnapshot(key) {
     const value = localStorage.getItem(key);
     let saved;
     try {
@@ -77,16 +78,10 @@ export function createQuizProgress(partIds) {
     const failures = Object.fromEntries(partIds
       .map((id) => [id, saved?.failures?.[id]])
       .filter(([, count]) => Number.isSafeInteger(count) && count >= 0));
-    return { credited, failures, run: restoreRun(saved?.run, credited) };
+    return { value, state: { credited, failures, run: restoreRun(saved?.run, credited) } };
   }
 
-  function load(key) {
-    try {
-      return readQuizProgress(key);
-    } catch {
-      return { credited: [], failures: {}, run: null };
-    }
-  }
+  const read = (key) => readSnapshot(key).state;
 
   function begin(state) {
     const remaining = partIds.filter((id) => !state.credited.includes(id));
@@ -113,7 +108,7 @@ export function createQuizProgress(partIds) {
     };
   }
 
-  return { read: readQuizProgress, load, begin };
+  return { read, readSnapshot, begin };
 }
 
 export function quizPercent(count, total) {

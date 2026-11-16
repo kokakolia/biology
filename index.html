@@ -25,6 +25,10 @@
 
   <main class="home-workspace" aria-labelledby="home-title">
     <h1 id="home-title" data-section-text="sectionTitle">Пищеварение</h1>
+    <section id="home-read-error" class="lesson-inactive" aria-label="Ошибка загрузки прогресса" hidden>
+      <p role="status">Не удалось обновить сохранённый прогресс.</p>
+      <button id="retry-home-progress" class="lesson-button" type="button">Повторить загрузку</button>
+    </section>
     <ul class="lesson-grid" aria-label="Уроки">
       <li class="lesson-card study-card" data-status="available">
         <div class="lesson-art"><img src="./assets/lesson-study.webp" data-lesson-image="study" width="700" height="470" alt=""></div>

@@ -15,13 +15,18 @@ export function createStudyProgress(ids, key) {
     return new Set();
   }
 
+  function read(marks = new Set()) {
+    for (const mark of parse(localStorage.getItem(key))) marks.add(mark);
+    for (const mark of knownMarks) {
+      if (!marks.has(mark) && localStorage.getItem(prefix + mark) === "true") marks.add(mark);
+    }
+    return marks;
+  }
+
   function load() {
-    let marks = new Set();
+    const marks = new Set();
     try {
-      marks = parse(localStorage.getItem(key));
-      for (const mark of knownMarks) {
-        if (!marks.has(mark) && localStorage.getItem(prefix + mark) === "true") marks.add(mark);
-      }
+      read(marks);
     } catch {
       // Keep the marks read before the failure.
     }
@@ -39,7 +44,7 @@ export function createStudyProgress(ids, key) {
   }
 
   return {
-    load, save, total,
+    read, load, save, total,
     matchesKey: (changed) => changed === key || Boolean(changed?.startsWith(prefix) && knownMarks.has(changed.slice(prefix.length))),
     unlockCount: Math.max(1, total / 2),
     percent: (count) => total ? Math.round(count * 100 / total) : 0,

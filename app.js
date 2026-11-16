@@ -1,6 +1,6 @@
 import { startFindLesson } from "./find-lesson.js";
 import { createProgressNotice } from "./progress-notice.js";
-import { sectionFromSearch, sectionHref } from "./sections.js";
+import { sectionFromSearch } from "./sections.js";
 import { applySectionPage } from "./section-page.js";
 import { createSectionProgress } from "./section-progress.js";
 
@@ -26,10 +26,11 @@ const referenceFunction = document.querySelector("#reference-function");
 const viewButtons = new Map();
 const progress = document.querySelector("#progress");
 const progressPercent = document.querySelector("#progress-percent");
-const marks = study.load();
+const marks = new Set();
 let viewer;
 let sceneLoad;
 let studySaveNotice;
+let findLesson;
 let selectionLocked = false;
 
 function updateProgress() {
@@ -96,7 +97,7 @@ function updateVisibility(id) {
 }
 
 function toggleOrgan(id) {
-  if (selectionLocked) return;
+  if (selectionLocked || !viewer.isReady()) return;
   const visible = viewer.isOrganVisible(id);
   if (visible && viewer.selected === id) selectOrgan(null);
   viewer.setOrganVisible(id, !visible);
@@ -105,8 +106,22 @@ function toggleOrgan(id) {
 
 function setSelectionLocked(locked) {
   selectionLocked = locked;
-  remove.disabled = locked;
-  for (const { visibilityButton } of rows.values()) visibilityButton.disabled = locked;
+  const ready = viewer?.isReady() ?? false;
+  remove.disabled = locked || !ready;
+  for (const { visibilityButton, pickButton } of rows.values()) {
+    visibilityButton.disabled = locked || !ready;
+    if (pickButton) pickButton.disabled = !ready;
+  }
+}
+
+function updateContext(ready) {
+  if (!ready) loadingMessage.textContent = "3D-сцена временно недоступна. Ожидаем восстановления…";
+  loading.hidden = ready;
+  stage.setAttribute("aria-busy", String(!ready));
+  setSelectionLocked(selectionLocked);
+  for (const button of viewButtons.values()) button.disabled = !ready;
+  for (const button of document.querySelectorAll(".context-controls button")) button.disabled = !ready;
+  findLesson?.updateModelAvailability();
 }
 
 function resetScene() {
@@ -140,7 +155,7 @@ function makeRows() {
     if (pickButton) {
       row.querySelector(".organ-name").textContent = organ.name;
       pickButton.addEventListener("click", () => {
-        if (viewer.isOrganVisible(id)) selectOrgan(id);
+        if (viewer.isReady() && viewer.isOrganVisible(id)) selectOrgan(id);
       });
     }
     updateVisibility(id);
@@ -185,6 +200,7 @@ async function loadLayerControls(config) {
     const button = document.createElement("button");
     button.type = "button";
     button.setAttribute("aria-pressed", String(visible));
+    button.disabled = !viewer.isReady();
     if (icon) {
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       const use = document.createElementNS(svg.namespaceURI, "use");
@@ -237,20 +253,18 @@ function start() {
     ensureScene();
   });
   if (isFind) {
-    if (marks.size < study.unlockCount) {
-      location.replace(sectionHref(section, "home"));
-      return;
-    }
-    startFindLesson({
+    findLesson = startFindLesson({
       reset: resetScene,
       selected: () => viewer?.selected ?? null,
       clearSelection: () => selectOrgan(null),
       setLocked: setSelectionLocked,
       ensureLoaded: ensureScene,
+      isReady: () => viewer?.isReady() ?? false,
     }, section, progressData);
     return;
   }
 
+  for (const mark of study.load()) marks.add(mark);
   progress.max = Math.max(1, study.total);
   if (!partIds.length) {
     document.querySelector(".lesson-instruction").textContent = "В этом разделе пока нет деталей для изучения.";
@@ -291,12 +305,12 @@ async function loadScene() {
           button.setAttribute("aria-pressed", String(views[id]));
         }
       },
+      onContextChange: updateContext,
     });
     makeViewControls(config);
     makeRows();
-    setSelectionLocked(selectionLocked);
     attachEvents();
-    loading.hidden = true;
+    updateContext(viewer.isReady());
     void loadLayerControls(config);
   } catch (error) {
     const webglUnavailable = viewerModule && error instanceof viewerModule.WebGLStartError;
@@ -305,7 +319,6 @@ async function loadScene() {
       : "Не удалось загрузить 3D-модель. Проверь соединение и повтори загрузку.";
     retryModel.hidden = Boolean(webglUnavailable);
     console.error(error);
-  } finally {
     stage.setAttribute("aria-busy", "false");
   }
 }

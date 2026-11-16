@@ -54,13 +54,14 @@ function renderThumbnails(renderer, anatomy, organs) {
   return thumbnails;
 }
 
-function attachPicking(canvas, camera, organs, onPick) {
+function attachPicking(canvas, camera, organs, onPick, isReady) {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const idsByMesh = new Map([...organs].map(([id, { mesh }]) => [mesh, id]));
   let interactionStart;
 
   function pick(event) {
+    if (!isReady()) return;
     const rect = canvas.getBoundingClientRect();
     pointer.set(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -84,6 +85,7 @@ function attachPicking(canvas, camera, organs, onPick) {
     }
   });
   canvas.addEventListener("pointercancel", () => { interactionStart = null; });
+  canvas.addEventListener("webglcontextlost", () => { interactionStart = null; });
   canvas.addEventListener("pointerup", (event) => {
     const start = interactionStart;
     interactionStart = null;
@@ -118,7 +120,7 @@ async function loadOrgans(loader, model, ghostHidden) {
 
 export class WebGLStartError extends Error {}
 
-export async function createTorsoViewer(stage, config, { ghostHidden = false, onPick, onViewChange } = {}) {
+export async function createTorsoViewer(stage, config, { ghostHidden = false, onPick, onViewChange, onContextChange } = {}) {
   const { model, context, camera: cameraConfig, label } = config;
   let renderer;
   try {
@@ -127,6 +129,8 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
     throw new WebGLStartError("WebGL 2 could not start", { cause });
   }
   const canvas = renderer.domElement;
+  let contextLost = false;
+  const isReady = () => !contextLost && !renderer.getContext().isContextLost();
   canvas.setAttribute("aria-label", label);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(cameraConfig.fieldOfView, 1, ...cameraConfig.clipping);
@@ -139,6 +143,7 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
   let thumbnails;
   try {
     const result = await loadOrgans(loader, model, ghostHidden);
+    if (!isReady()) throw new Error("WebGL context was lost during model loading");
     organs = result.organs;
     anatomy.add(result.partsGroup);
     thumbnails = renderThumbnails(renderer, anatomy, organs);
@@ -161,12 +166,12 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
   let selected = null;
 
   function render() {
-    renderer.render(scene, camera);
+    if (isReady()) renderer.render(scene, camera);
   }
 
   function resize() {
     const { clientWidth, clientHeight } = stage;
-    if (!clientWidth || !clientHeight) return;
+    if (!clientWidth || !clientHeight || !isReady()) return;
     renderer.setSize(clientWidth, clientHeight, false);
     camera.aspect = clientWidth / clientHeight;
     const distance = Math.max(cameraConfig.distance, cameraConfig.narrowFit / camera.aspect);
@@ -204,10 +209,23 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
   });
   resize();
   setView(cameraConfig.initialView);
-  if (onPick) attachPicking(canvas, camera, organs, onPick);
+  if (onPick) attachPicking(canvas, camera, organs, onPick, isReady);
+  canvas.addEventListener("webglcontextlost", (event) => {
+    event.preventDefault();
+    contextLost = true;
+    controls.enabled = false;
+    onContextChange?.(false);
+  });
+  canvas.addEventListener("webglcontextrestored", () => {
+    contextLost = false;
+    controls.enabled = true;
+    resize();
+    onContextChange?.(true);
+  });
   new ResizeObserver(resize).observe(stage);
 
   return {
+    isReady,
     thumbnail: (id) => thumbnails.get(id),
     get selected() { return selected; },
     setSelection,

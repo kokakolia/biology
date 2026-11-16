@@ -35,12 +35,18 @@ function startPhotoLesson() {
   let photoSource;
   let photoState = "loading";
 
+  function repeatsLastAnswer(run, answer) {
+    return run.feedback === "retry" && run.queue[0]?.lastAnswer === answer;
+  }
+
   function updateAnswerControls(run) {
     const correct = run.feedback === "correct";
     const missed = run.feedback === "missed";
     input.readOnly = correct || missed || photoState !== "ready";
     input.required = !input.readOnly;
-    submit.disabled = missed || (!correct && photoState !== "ready");
+    submit.type = correct ? "button" : "submit";
+    submit.disabled = missed || (!correct &&
+      (photoState !== "ready" || repeatsLastAnswer(run, normalizePhotoAnswer(input.value))));
   }
 
   function showPhotoState(state, run) {
@@ -97,12 +103,16 @@ function startPhotoLesson() {
     next.hidden = !missed;
     feedback.dataset.kind = run.feedback ?? "";
     const correctedName = task.corrected ? organ.name.toLocaleLowerCase("ru-RU") : undefined;
-    feedback.textContent = quizFeedback(run, task, section.copy, correctedName);
+    feedback.textContent = run.feedback === "retry"
+      ? "Пока неверно. Измени ответ для второй попытки."
+      : quizFeedback(run, task, section.copy, correctedName);
     if (focus) input.focus();
   }
 
   const page = connectQuizPage(keys.photo, quiz, {
     taskView, summary, render, studyHref: sectionHref(section, "study"),
+    homeHref: sectionHref(section, "home"),
+    canEnter: () => quiz.read(keys.find).credited.length >= findUnlockCount,
   });
 
   function advance() {
@@ -116,17 +126,23 @@ function startPhotoLesson() {
     if (!page.isActive() || input.readOnly) return;
     input.setCustomValidity("");
     page.change(({ run }) => { run.queue[0].answer = input.value; }, { render: false });
+    updateAnswerControls(page.state.run);
+  });
+  form.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.repeat) event.preventDefault();
+  });
+  submit.addEventListener("click", (event) => {
+    if (event.detail > 1) event.preventDefault();
+    else if (page.isActive() && page.state.run.feedback === "correct") advance();
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!page.isActive()) return;
     const { run } = page.state;
-    if (run.feedback === "correct") {
-      advance();
-      return;
-    }
-    if (run.feedback === "missed" || photoState !== "ready") return;
-    if (!normalizePhotoAnswer(input.value)) {
+    const answer = normalizePhotoAnswer(input.value);
+    if (run.feedback === "correct" || run.feedback === "missed" ||
+        photoState !== "ready" || repeatsLastAnswer(run, answer)) return;
+    if (!answer) {
       input.setCustomValidity(section.copy?.photoRequired ?? "Введи название.");
       input.reportValidity();
       return;
@@ -136,6 +152,7 @@ function startPhotoLesson() {
     const match = matchPhotoAnswer(input.value);
     page.change((state) => {
       task.answer = input.value;
+      task.lastAnswer = answer;
       task.corrected = match.corrected && match.id === task.id;
       answerQuizTask(state, match.id);
     });
@@ -156,5 +173,4 @@ function startPhotoLesson() {
   document.querySelector("main").hidden = false;
 }
 
-if (quiz.load(keys.find).credited.length < findUnlockCount) location.replace(sectionHref(section, "home"));
-else startPhotoLesson();
+startPhotoLesson();

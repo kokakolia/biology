@@ -50,7 +50,7 @@ test("missing queue restarts the run with saved credit and failures", (t) => {
     failures: { liver: 2, unknown: 3, pancreas: -1, stomach: "2" },
     run: { phase: "main", review: [] },
   });
-  const state = quiz.load(keys.photo);
+  const state = quiz.read(keys.photo);
   assert.deepEqual(state, { credited: ["liver"], failures: { liver: 2 }, run: null });
   assert.equal(quizPercent(state.credited.length, partIds.length), 17);
   quiz.begin(state);
@@ -72,7 +72,7 @@ test("a damaged task is skipped without passing its feedback to the next organ",
       ],
     },
   });
-  const { run } = quiz.load(keys.photo);
+  const { run } = quiz.read(keys.photo);
   assert.deepEqual(run.queue, [{ id: "liver", attempts: 0, answer: "печ" }]);
   assert.equal(run.feedback, null);
   assert.equal(run.total, 1);
@@ -84,24 +84,26 @@ test("an exhausted task without valid feedback cannot trap the student", (t) => 
     credited: ["liver"],
     run: { phase: "review", total: 1, queue: [{ id: "stomach", attempts: 2 }], review: [], feedback: "retry" },
   });
-  assert.deepEqual(quiz.load(keys.find), { credited: ["liver"], failures: {}, run: null });
+  assert.deepEqual(quiz.read(keys.find), { credited: ["liver"], failures: {}, run: null });
 });
 
 test("normal reopening preserves the question, draft and attempts", (t) => {
   useStorage(t);
-  const state = quiz.load(keys.photo);
+  const state = quiz.read(keys.photo);
   quiz.begin(state);
   const task = state.run.queue[0];
   answerQuizTask(state, null);
   task.answer = "черновик";
+  task.lastAnswer = "неверный ответ";
   saveQuizProgress(keys.photo, state);
-  const reopened = quiz.load(keys.photo);
+  const reopened = quiz.read(keys.photo);
   assert.deepEqual(reopened, state);
   assert.equal(reopened.run.feedback, "retry");
   assert.equal(reopened.run.queue[0].attempts, 1);
+  assert.equal(reopened.run.queue[0].lastAnswer, "неверный ответ");
   answerQuizTask(reopened, null);
   saveQuizProgress(keys.photo, reopened);
-  const missed = quiz.load(keys.photo);
+  const missed = quiz.read(keys.photo);
   assert.equal(missed.run.feedback, "missed");
   assert.equal(missed.run.queue[0].attempts, 2);
   nextQuizTask(missed.run);
@@ -111,13 +113,13 @@ test("normal reopening preserves the question, draft and attempts", (t) => {
 
 test("returning from study moves main tasks and preserves review attempts", (t) => {
   useStorage(t);
-  let state = quiz.load(keys.find);
+  let state = quiz.read(keys.find);
   quiz.begin(state);
   const { id } = state.run.queue[0];
   answerQuizTask(state, null);
   moveQuizTaskToStudy(state.run);
   saveQuizProgress(keys.find, state);
-  state = quiz.load(keys.find);
+  state = quiz.read(keys.find);
   assert.deepEqual(state.run.review, [{ id, attempts: 0 }]);
   while (state.run.queue.length) {
     answerQuizTask(state, state.run.queue[0].id);
@@ -125,13 +127,13 @@ test("returning from study moves main tasks and preserves review attempts", (t) 
   }
   assert.equal(state.run.phase, "break");
   saveQuizProgress(keys.find, state);
-  state = quiz.load(keys.find);
+  state = quiz.read(keys.find);
   startQuizReview(state.run);
   assert.deepEqual(state.run.queue, [{ id, attempts: 0 }]);
   answerQuizTask(state, null);
   moveQuizTaskToStudy(state.run);
   saveQuizProgress(keys.find, state);
-  state = quiz.load(keys.find);
+  state = quiz.read(keys.find);
   assert.equal(state.run.queue[0].attempts, 1);
 });
 
@@ -147,7 +149,7 @@ test("credit earned in review keeps its round after reloading", (t) => {
   answerQuizTask(state, "stomach");
   nextQuizTask(state.run);
   saveQuizProgress(keys.photo, state);
-  const { run, credited } = quiz.load(keys.photo);
+  const { run, credited } = quiz.read(keys.photo);
   assert.equal(run.phase, "results");
   assert.equal(run.creditRounds.stomach, "review");
   assert.equal(credited.length, partIds.length);
@@ -168,7 +170,7 @@ test("a repeat uses only missing organs and keeps the separate practice score", 
   assert.equal(quizPercent(state.run.practiceCredits.length, partIds.length), 0);
   answerQuizTask(state, state.run.queue[0].id);
   saveQuizProgress(keys.photo, state);
-  const reopened = quiz.load(keys.photo);
+  const reopened = quiz.read(keys.photo);
   assert.equal(quizPercent(reopened.run.practiceCredits.length, partIds.length), 17);
   assert.equal(quizPercent(reopened.credited.length, partIds.length), 100);
 });
@@ -180,7 +182,7 @@ test("older practice results retain first-attempt credit", (t) => {
     failures: {},
     run: { phase: "results", practice: true, queue: [], review: [], firstTry: partIds.slice(0, 4) },
   });
-  const state = quiz.load(keys.photo);
+  const state = quiz.read(keys.photo);
   assert.equal(quizPercent(state.run.practiceCredits.length, partIds.length), 67);
   assert.deepEqual(state.run.creditRounds, {});
   quiz.begin(state);
@@ -189,13 +191,13 @@ test("older practice results retain first-attempt credit", (t) => {
   assert.equal(quizPercent(state.run.practiceCredits.length, partIds.length), 67);
 });
 
-test("unavailable or malformed storage starts with empty progress", (t) => {
+test("malformed data starts empty while a storage read error is reported", (t) => {
   useStorage(t);
   localStorage.setItem(keys.photo, "{");
   const empty = { credited: [], failures: {}, run: null };
-  assert.deepEqual(quiz.load(keys.photo), empty);
+  assert.deepEqual(quiz.read(keys.photo), empty);
   t.mock.method(localStorage, "getItem", () => { throw new Error("Storage is disabled"); });
-  assert.deepEqual(quiz.load(keys.photo), empty);
+  assert.throws(() => quiz.read(keys.photo), /Storage is disabled/);
 });
 
 test("a transient quiz read failure cannot replace previously saved progress", async (t) => {
@@ -220,6 +222,7 @@ test("a transient quiz read failure cannot replace previously saved progress", a
   assert.equal(await session.open(), "read-failed");
   assert.equal(session.isActive(), false);
   assert.equal(session.save(), false);
+  assert.equal(session.savedCreditCount, 0);
   assert.equal(write.mock.callCount(), 0);
   assert.equal(read(keys.find), original);
 
@@ -267,7 +270,7 @@ test("interleaved study writes preserve marks from both tabs", (t) => {
 
 test("quiz keeps the latest in-memory attempt when a write fails", (t) => {
   useStorage(t);
-  const state = quiz.load(keys.photo);
+  const state = quiz.read(keys.photo);
   quiz.begin(state);
   assert.equal(saveQuizProgress(keys.photo, state), true);
   answerQuizTask(state, null);
@@ -275,21 +278,21 @@ test("quiz keeps the latest in-memory attempt when a write fails", (t) => {
 
   const write = t.mock.method(localStorage, "setItem", () => { throw new Error("Quota exceeded"); });
   assert.equal(saveQuizProgress(keys.photo, state), false);
-  assert.equal(quiz.load(keys.photo).run.queue[0].attempts, 0);
+  assert.equal(quiz.read(keys.photo).run.queue[0].attempts, 0);
   write.mock.restore();
   assert.equal(saveQuizProgress(keys.photo, state), true);
-  assert.deepEqual(quiz.load(keys.photo), state);
+  assert.deepEqual(quiz.read(keys.photo), state);
 });
 
 test("an old study marker cannot move a task during ordinary reopening", (t) => {
   useStorage(t);
-  const state = quiz.load(keys.find);
+  const state = quiz.read(keys.find);
   quiz.begin(state);
   answerQuizTask(state, null);
   const task = { ...state.run.queue[0] };
   state.run.departed = "study";
   saveQuizProgress(keys.find, state);
-  const reopened = quiz.load(keys.find);
+  const reopened = quiz.read(keys.find);
   assert.deepEqual(reopened.run.queue[0], task);
   assert.equal(reopened.run.feedback, "retry");
   assert.deepEqual(reopened.run.review, []);
@@ -313,7 +316,7 @@ test("only one tab opens the same quiz and it keeps an unsaved answer", async (t
     assert.equal(second.save(), false);
     assert.equal(await first.open(), "active");
     assert.deepEqual(first.state.credited, [id]);
-    assert.deepEqual(quiz.load(key).credited, []);
+    assert.deepEqual(quiz.read(key).credited, []);
 
     write.mock.restore();
     assert.equal(first.save(), true);
@@ -342,7 +345,69 @@ test("closing during lock acquisition cannot start a quiz in the background", as
   grant();
   assert.equal(await opening, "closed");
   assert.equal(session.isActive(), false);
-  assert.equal(quiz.load(keys.find).run, null);
+  assert.equal(quiz.read(keys.find).run, null);
+});
+
+test("returning to the same page after a failed write keeps the answer in memory", async (t) => {
+  useStorage(t);
+  const session = createQuizSession(keys.find, quiz, testLocks());
+  assert.equal(await session.open(), "active");
+  assert.ok(session.save());
+  const { id } = session.state.run.queue[0];
+  session.edit((state) => answerQuizTask(state, id));
+  const write = t.mock.method(localStorage, "setItem", () => { throw new Error("Quota exceeded"); });
+  assert.equal(session.save(), false);
+  session.close();
+  assert.deepEqual(quiz.read(keys.find).credited, []);
+  write.mock.restore();
+
+  assert.equal(await session.open(), "active");
+  assert.equal(session.state.run.feedback, "correct");
+  assert.ok(session.save());
+  assert.deepEqual(quiz.read(keys.find).credited, [id]);
+  assert.equal(session.savedCreditCount, 1);
+  session.close();
+});
+
+test("an unsaved answer cannot overwrite changes made by another tab while the page was away", async (t) => {
+  useStorage(t);
+  const locks = testLocks();
+  const first = createQuizSession(keys.find, quiz, locks);
+  const second = createQuizSession(keys.find, quiz, locks);
+  assert.equal(await first.open(), "active");
+  assert.ok(first.save());
+  const { id } = first.state.run.queue[0];
+  first.edit((state) => answerQuizTask(state, id));
+  const write = t.mock.method(localStorage, "setItem", () => { throw new Error("Quota exceeded"); });
+  await first.close();
+  write.mock.restore();
+
+  assert.equal(await second.open(), "active");
+  second.edit((state) => answerQuizTask(state, null));
+  assert.ok(second.save());
+  await second.close();
+  const stored = quiz.readSnapshot(keys.find).value;
+
+  assert.equal(await first.open(), "draft-conflict");
+  assert.deepEqual(first.state.credited, [id]);
+  assert.equal(first.save(), false);
+  assert.equal(quiz.readSnapshot(keys.find).value, stored);
+  assert.equal(await first.open({ discardDraft: true }), "active");
+  assert.equal(first.state.run.feedback, "retry");
+  assert.deepEqual(first.state.credited, []);
+  first.close();
+});
+
+test("unlock data distinguishes a storage error from a genuinely locked lesson", (t) => {
+  useStorage(t);
+  const marks = new Set(["select:stomach", "info:stomach", "select:liver", "info:liver", "select:esophagus", "info:esophagus"]);
+  assert.ok(study.save(marks));
+  assert.ok(study.read().size >= study.unlockCount);
+  const read = t.mock.method(localStorage, "getItem", () => { throw new Error("Temporary read failure"); });
+  assert.throws(() => study.read(), /Temporary read failure/);
+  assert.throws(() => quiz.read(keys.find), /Temporary read failure/);
+  read.mock.restore();
+  assert.ok(study.read().size >= study.unlockCount);
 });
 
 test("moving a task to study only changes the quiz after a successful write", async (t) => {
@@ -355,11 +420,11 @@ test("moving a task to study only changes the quiz after a successful write", as
   const write = t.mock.method(localStorage, "setItem", () => { throw new Error("Quota exceeded"); });
   assert.equal(session.moveToStudy(), false);
   assert.deepEqual(session.state.run.queue[0], { id, attempts: 1 });
-  assert.deepEqual(quiz.load(keys.find).run.queue[0], { id, attempts: 1 });
+  assert.deepEqual(quiz.read(keys.find).run.queue[0], { id, attempts: 1 });
   write.mock.restore();
   assert.equal(session.moveToStudy(), true);
-  assert.notEqual(quiz.load(keys.find).run.queue[0].id, id);
-  assert.deepEqual(quiz.load(keys.find).run.review, [{ id, attempts: 0 }]);
+  assert.notEqual(quiz.read(keys.find).run.queue[0].id, id);
+  assert.deepEqual(quiz.read(keys.find).run.review, [{ id, attempts: 0 }]);
   session.close();
 });
 
@@ -397,9 +462,9 @@ test("a different section uses its own part IDs, answers and progress", (t) => {
   study.save(new Set(["select:stomach", "info:stomach"]));
   saveQuizProgress(keys.find, { credited: ["stomach"], failures: {}, run: null });
   assert.equal(next.study.load().size, 0);
-  assert.deepEqual(next.quiz.load(next.keys.find).credited, []);
+  assert.deepEqual(next.quiz.read(next.keys.find).credited, []);
 
-  const state = next.quiz.load(next.keys.find);
+  const state = next.quiz.read(next.keys.find);
   next.quiz.begin(state);
   assert.deepEqual(new Set(state.run.queue.map(({ id }) => id)), new Set(Object.keys(section.parts)));
   assert.equal(createPhotoAnswerMatcher(section.parts)("камера").id, "stomach");
@@ -412,7 +477,7 @@ test("an empty section shows zero progress and keeps quizzes locked", (t) => {
   useStorage(t);
   const empty = createSectionProgress({ id: "empty", parts: {} });
   const marks = empty.study.load().size;
-  const credits = empty.quiz.load(empty.keys.find).credited.length;
+  const credits = empty.quiz.read(empty.keys.find).credited.length;
   assert.equal(empty.study.percent(marks), 0);
   assert.equal(quizPercent(credits, empty.partIds.length), 0);
   assert.ok(marks < empty.study.unlockCount);

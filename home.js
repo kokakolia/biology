@@ -22,6 +22,9 @@ const photoEntry = document.querySelector("#photo-entry");
 const photoStatus = document.querySelector("#photo-status");
 const photoMeter = document.querySelector("#photo-meter");
 const photoPercent = document.querySelector("#photo-percent");
+const readError = document.querySelector("#home-read-error");
+let hasProgress = false;
+const meters = [meter, findMeter, photoMeter];
 
 function quizAction(run) {
   if (!run) return "Начать";
@@ -29,14 +32,32 @@ function quizAction(run) {
 }
 
 function renderProgress() {
-  const count = study.load().size;
+  let count;
+  let find;
+  let photo;
+  try {
+    count = study.read().size;
+    find = quiz.read(keys.find);
+    photo = quiz.read(keys.photo);
+  } catch {
+    if (!hasProgress) {
+      for (const output of [percentOutput, findPercentOutput, photoPercent]) output.textContent = "—";
+      for (const progress of meters) progress.hidden = true;
+      findLock.hidden = photoLock.hidden = true;
+    }
+    readError.hidden = false;
+    return;
+  }
+  hasProgress = true;
+  for (const progress of meters) progress.hidden = false;
+  readError.hidden = true;
+
   const percent = study.percent(count);
   meter.value = percent;
   percentOutput.textContent = `${percent}%`;
   studyAction.textContent = percent === 0 ? "Начать" : percent === 100 ? "Повторить" : "Продолжить";
 
   const findAvailable = count >= study.unlockCount;
-  const find = quiz.load(keys.find);
   const score = quizPercent(find.credited.length, partIds.length);
   findCard.dataset.status = findAvailable ? "available" : "locked";
   findLock.hidden = findAvailable;
@@ -49,7 +70,6 @@ function renderProgress() {
   photoCard.dataset.status = photoAvailable ? "available" : "locked";
   photoLock.hidden = photoAvailable;
   photoEntry.hidden = !photoAvailable;
-  const photo = quiz.load(keys.photo);
   const photoScore = quizPercent(photo.credited.length, partIds.length);
   photoMeter.value = photoScore;
   photoPercent.textContent = `${photoScore}%`;
@@ -57,7 +77,10 @@ function renderProgress() {
 }
 
 renderProgress();
-window.addEventListener("pageshow", renderProgress);
+document.querySelector("#retry-home-progress").addEventListener("click", renderProgress);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) renderProgress();
+});
 window.addEventListener("storage", (event) => {
   if (study.matchesKey(event.key) || event.key === keys.find || event.key === keys.photo || event.key === null) renderProgress();
 });

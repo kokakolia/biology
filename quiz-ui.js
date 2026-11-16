@@ -18,7 +18,7 @@ export function renderQuizProgress(meter, percent, state, total) {
   percent.textContent = `${quizPercent(count, total)}%`;
 }
 
-export function renderQuizSummary(summary, state, section, nextThreshold) {
+export function renderQuizSummary(summary, state, section, nextUnlocked = false) {
   const { run } = state;
   const summaryStudy = summary.querySelector("#summary-study");
   const repeatButton = summary.querySelector("[data-quiz-repeat]");
@@ -44,7 +44,7 @@ export function renderQuizSummary(summary, state, section, nextThreshold) {
   repeatButton.hidden = reviewing;
   summaryStudy.hidden = reviewing || count === total;
   const summaryNext = summary.querySelector("#summary-next");
-  if (summaryNext) summaryNext.hidden = reviewing || state.credited.length < nextThreshold;
+  if (summaryNext) summaryNext.hidden = reviewing || !nextUnlocked;
   summaryList.hidden = reviewing;
   if (reviewing) return;
 
