@@ -134,7 +134,7 @@ progress::-moz-progress-bar { border-radius: 99px; background: linear-gradient(1
   .footer { padding-block: 9px; }
 }
 
-.lesson-inactive {
+.lesson-inactive, .progress-notice {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -145,7 +145,24 @@ progress::-moz-progress-bar { border-radius: 99px; background: linear-gradient(1
   border-radius: 14px;
   background: #f2f8f0;
 }
-.lesson-inactive p { margin: 0; color: var(--muted); font-size: 14px; }
+.lesson-inactive p, .progress-notice p { margin: 0; color: var(--muted); font-size: 14px; }
+.progress-notice {
+  position: sticky;
+  top: 8px;
+  z-index: 3;
+  flex-wrap: wrap;
+  border-color: #e3c69c;
+  background: linear-gradient(155deg, #fffbf3, #f9ebd6);
+  box-shadow: var(--glass-shadow);
+}
+.progress-notice p { color: #694924; }
+.progress-notice-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
 .lesson-button {
   display: inline-flex;
   align-items: center;

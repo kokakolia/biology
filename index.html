@@ -24,54 +24,54 @@
   </header>
 
   <main class="home-workspace" aria-labelledby="home-title">
-    <h1 id="home-title">Пищеварение</h1>
+    <h1 id="home-title" data-section-text="sectionTitle">Пищеварение</h1>
     <ul class="lesson-grid" aria-label="Уроки">
       <li class="lesson-card study-card" data-status="available">
-        <div class="lesson-art"><img src="./assets/lesson-study.webp" width="700" height="470" alt=""></div>
+        <div class="lesson-art"><img src="./assets/lesson-study.webp" data-lesson-image="study" width="700" height="470" alt=""></div>
         <div class="lesson-details">
-          <h2 id="study-title">Изучи</h2>
+          <h2 id="study-title" data-section-text="studyTitle">Изучи</h2>
           <div class="lesson-meter">
-            <progress id="study-meter" max="100" value="0" aria-label="Прогресс урока «Изучи»"></progress>
+            <progress id="study-meter" data-lesson-meter="study" max="100" value="0" aria-label="Прогресс урока «Изучи»"></progress>
             <span id="study-percent" aria-hidden="true">0%</span>
           </div>
           <div class="lesson-action">
-            <a class="enter-lesson" href="./study.html" aria-labelledby="study-action study-title">
+            <a class="enter-lesson" href="./study.html" data-section-link="study" aria-labelledby="study-action study-title">
               <span id="study-action">Начать</span><span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></span>
             </a>
           </div>
         </div>
       </li>
       <li id="find-card" class="lesson-card find-card" data-status="locked">
-        <div class="lesson-art"><img src="./assets/lesson-find.webp" width="700" height="470" alt=""></div>
+        <div class="lesson-art"><img src="./assets/lesson-find.webp" data-lesson-image="find" width="700" height="470" alt=""></div>
         <div class="lesson-details">
-          <h2 id="find-title">Найди орган</h2>
+          <h2 id="find-title" data-section-text="findTitle">Найди орган</h2>
           <div class="lesson-meter">
-            <progress id="find-meter" max="100" value="0" aria-label="Прогресс урока «Найди орган»"></progress><span id="find-percent" aria-hidden="true">0%</span>
+            <progress id="find-meter" data-lesson-meter="find" max="100" value="0" aria-label="Прогресс урока «Найди орган»"></progress><span id="find-percent" aria-hidden="true">0%</span>
           </div>
           <div class="lesson-action">
             <div id="find-lock" class="unavailable-lesson">
-              <span>Достигни 50% в «Изучи»</span>
+              <span data-section-text="findLock">Достигни 50% в «Изучи»</span>
               <span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg></span>
             </div>
-            <a id="find-entry" class="enter-lesson" href="./find.html" aria-labelledby="find-status find-title" hidden>
+            <a id="find-entry" class="enter-lesson" href="./find.html" data-section-link="find" aria-labelledby="find-status find-title" hidden>
               <span id="find-status">Начать</span><span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></span>
             </a>
           </div>
         </div>
       </li>
       <li id="photo-card" class="lesson-card photo-card" data-status="locked">
-        <div class="lesson-art"><img src="./assets/lesson-photo.webp" width="700" height="470" alt=""></div>
+        <div class="lesson-art"><img src="./assets/lesson-photo.webp" data-lesson-image="photo" width="700" height="470" alt=""></div>
         <div class="lesson-details">
-          <h2 id="photo-title">Узнай по фото</h2>
+          <h2 id="photo-title" data-section-text="photoTitle">Узнай по фото</h2>
           <div class="lesson-meter">
-            <progress id="photo-meter" max="100" value="0" aria-label="Прогресс урока «Узнай по фото»"></progress><span id="photo-percent" aria-hidden="true">0%</span>
+            <progress id="photo-meter" data-lesson-meter="photo" max="100" value="0" aria-label="Прогресс урока «Узнай по фото»"></progress><span id="photo-percent" aria-hidden="true">0%</span>
           </div>
           <div class="lesson-action">
             <div id="photo-lock" class="unavailable-lesson">
-              <span>Достигни 50% в «Найди орган»</span>
+              <span data-section-text="photoLock">Достигни 50% в «Найди орган»</span>
               <span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg></span>
             </div>
-            <a id="photo-entry" class="enter-lesson" href="./photo.html" aria-labelledby="photo-status photo-title" hidden>
+            <a id="photo-entry" class="enter-lesson" href="./photo.html" data-section-link="photo" aria-labelledby="photo-status photo-title" hidden>
               <span id="photo-status">Начать</span><span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></span>
             </a>
           </div>

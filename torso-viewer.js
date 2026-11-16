@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { loadBodyContext } from "./body-context.js";
 
 function addLighting(scene) {
   const key = new THREE.DirectionalLight(0xffefdf, 2.0);
@@ -11,18 +10,15 @@ function addLighting(scene) {
   scene.add(new THREE.HemisphereLight(0xe7efff, 0xa58183, 2.2), key, rim);
 }
 
-function createAnatomy() {
+function createAnatomy({ rotation, center, scale }) {
   const anatomy = new THREE.Group();
-  // BodyParts3D uses Z up and negative Y anterior. Both GLBs share this frame.
-  anatomy.rotation.x = -Math.PI / 2;
-  const center = new THREE.Vector3(-0.0445, -90.1375, 1085).applyEuler(anatomy.rotation);
-  const scale = 1 / 680;
+  anatomy.rotation.set(...rotation);
   anatomy.scale.setScalar(scale);
-  anatomy.position.copy(center).multiplyScalar(-scale);
+  anatomy.position.fromArray(center).applyEuler(anatomy.rotation).multiplyScalar(-scale);
   return anatomy;
 }
 
-function renderThumbnails(renderer, anatomy, organs, catalog) {
+function renderThumbnails(renderer, anatomy, organs) {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .01, 12);
   const group = new THREE.Group();
@@ -46,7 +42,7 @@ function renderThumbnails(renderer, anatomy, organs, catalog) {
     camera.right = -camera.left;
     camera.top = extent;
     camera.bottom = -extent;
-    const angle = catalog[id].thumbnailAngle ?? .16;
+    const angle = organ.thumbnailAngle;
     camera.position.set(Math.sin(angle), .14, Math.cos(angle)).multiplyScalar(half * 4).add(center);
     camera.lookAt(center);
     camera.updateProjectionMatrix();
@@ -61,6 +57,7 @@ function renderThumbnails(renderer, anatomy, organs, catalog) {
 function attachPicking(canvas, camera, organs, onPick) {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
+  const idsByMesh = new Map([...organs].map(([id, { mesh }]) => [mesh, id]));
   let interactionStart;
 
   function pick(event) {
@@ -72,7 +69,7 @@ function attachPicking(canvas, camera, organs, onPick) {
     raycaster.setFromCamera(pointer, camera);
     const visible = [...organs.values()].filter((organ) => !organ.removed).map((organ) => organ.mesh);
     const [hit] = raycaster.intersectObjects(visible, false);
-    onPick(hit?.object.name ?? null);
+    onPick(idsByMesh.get(hit?.object) ?? null);
   }
 
   canvas.addEventListener("pointerdown", (event) => {
@@ -94,29 +91,34 @@ function attachPicking(canvas, camera, organs, onPick) {
   });
 }
 
-export async function createTorsoViewer(stage, { catalog, label, ghostHidden = false, onPick, onViewChange }) {
+export async function createTorsoViewer(stage, config, { ghostHidden = false, onPick, onViewChange } = {}) {
+  const { model, context, camera: cameraConfig, label } = config;
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   const canvas = renderer.domElement;
   canvas.setAttribute("aria-label", label);
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(34, 1, 0.01, 40);
-  const anatomy = createAnatomy();
+  const camera = new THREE.PerspectiveCamera(cameraConfig.fieldOfView, 1, ...cameraConfig.clipping);
+  const anatomy = createAnatomy(model.transform);
   scene.add(anatomy);
   addLighting(scene);
 
   const loader = new GLTFLoader();
-  const [{ scene: models }, layers] = await Promise.all([
-    loader.loadAsync("./assets/organ-material-trial.glb"),
-    loadBodyContext(loader),
+  const [{ scene: models }, contextModel] = await Promise.all([
+    loader.loadAsync(model.url),
+    context && loader.loadAsync(context.url),
   ]);
+  const layers = contextModel ? await context.buildLayers(contextModel.scene) : {};
   const organs = new Map();
-  for (const id of Object.keys(catalog)) {
-    const mesh = models.getObjectByName(id);
-    if (!mesh?.isMesh) throw new Error(`Missing organ mesh: ${id}`);
-    const material = mesh.material;
-    material.emissive.set(material.userData.displayColor);
+  const partsGroup = new THREE.Group();
+  for (const [id, { meshName = id, thumbnailAngle = .16 }] of Object.entries(model.organs)) {
+    const mesh = models.getObjectByName(meshName);
+    if (!mesh?.isMesh) throw new Error(`Missing organ mesh: ${meshName}`);
+    if (!mesh.material.emissive) throw new Error(`Organ mesh needs a material with emissive color: ${meshName}`);
+    const material = mesh.material.clone();
+    material.emissive.set(material.userData.displayColor ?? material.color);
     material.emissiveIntensity = 0;
-    const organ = { mesh, material, removed: false };
+    mesh.material = material;
+    const organ = { mesh, material, thumbnailAngle, removed: false };
     if (ghostHidden) {
       organ.ghost = material.clone();
       organ.ghost.transparent = true;
@@ -124,18 +126,21 @@ export async function createTorsoViewer(stage, { catalog, label, ghostHidden = f
       organ.ghost.depthWrite = false;
     }
     organs.set(id, organ);
-    anatomy.add(mesh);
+    partsGroup.attach(mesh);
   }
-  layers.bones.visible = false;
-  anatomy.add(layers.skin, layers.bones);
-  const thumbnails = renderThumbnails(renderer, anatomy, organs, catalog);
+  anatomy.add(partsGroup);
+  for (const layer of Object.values(layers)) anatomy.add(layer);
+  const thumbnails = renderThumbnails(renderer, anatomy, organs);
 
   stage.prepend(canvas);
   const controls = new OrbitControls(camera, canvas);
   controls.enablePan = false;
-  controls.minDistance = .7;
-  controls.maxDistance = 5;
-  let homeDistance = 1.82;
+  [controls.minDistance, controls.maxDistance] = cameraConfig.zoomRange;
+  const views = new Map(Object.entries(cameraConfig.views).map(([id, { target, direction }]) => [
+    id, { target, direction: new THREE.Vector3(...direction).normalize() },
+  ]));
+  const viewingDirection = new THREE.Vector3();
+  let homeDistance = cameraConfig.distance;
   let selected = null;
 
   function render() {
@@ -147,18 +152,17 @@ export async function createTorsoViewer(stage, { catalog, label, ghostHidden = f
     if (!clientWidth || !clientHeight) return;
     renderer.setSize(clientWidth, clientHeight, false);
     camera.aspect = clientWidth / clientHeight;
-    const distance = Math.max(1.82, 1.46 / camera.aspect);
+    const distance = Math.max(cameraConfig.distance, cameraConfig.narrowFit / camera.aspect);
     camera.position.sub(controls.target).multiplyScalar(distance / homeDistance).add(controls.target);
     homeDistance = distance;
     camera.updateProjectionMatrix();
     render();
   }
 
-  function setView(view) {
-    const front = view === "front";
-    const height = front ? -.03 : -.06;
-    controls.target.set(0, height, 0);
-    camera.position.set(0, height, front ? homeDistance : -homeDistance);
+  function setView(id) {
+    const view = views.get(id);
+    controls.target.fromArray(view.target);
+    camera.position.copy(view.direction).multiplyScalar(homeDistance).add(controls.target);
     controls.update();
   }
 
@@ -177,16 +181,12 @@ export async function createTorsoViewer(stage, { catalog, label, ghostHidden = f
   }
 
   controls.addEventListener("change", () => {
-    const angle = Math.abs(controls.getAzimuthalAngle());
-    const level = Math.abs(controls.getPolarAngle() - Math.PI / 2) < .035;
-    onViewChange?.({
-      front: level && angle < .035,
-      back: level && Math.PI - angle < .035,
-    });
+    viewingDirection.subVectors(camera.position, controls.target);
+    onViewChange?.(Object.fromEntries([...views].map(([id, view]) => [id, viewingDirection.angleTo(view.direction) < .035])));
     render();
   });
   resize();
-  setView("front");
+  setView(cameraConfig.initialView);
   if (onPick) attachPicking(canvas, camera, organs, onPick);
   new ResizeObserver(resize).observe(stage);
 
@@ -205,6 +205,7 @@ export async function createTorsoViewer(stage, { catalog, label, ghostHidden = f
       render();
     },
     setView,
+    layerVisible: (name) => layers[name]?.visible,
     toggleLayer(name) {
       const layer = layers[name];
       layer.visible = !layer.visible;

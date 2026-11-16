@@ -46,5 +46,3 @@ export const organCatalog = {
     function: "Она всасывает часть воды из остатков пищи, помогая сформировать кал.",
   },
 };
-
-export const organIds = Object.keys(organCatalog);

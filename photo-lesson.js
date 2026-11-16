@@ -1,14 +1,21 @@
-import { loadFindProgress, findUnlockCount } from "./find-progress.js";
+import { sectionFromSearch, sectionHref } from "./sections.js";
+import { applySectionPage } from "./section-page.js";
+import { createSectionProgress } from "./section-progress.js";
 import { connectLessonActivity } from "./lesson-activity.js";
-import { organCatalog } from "./organs.js";
-import { matchPhotoAnswer, normalizePhotoAnswer } from "./photo-answer.js";
+import { createProgressNotice } from "./progress-notice.js";
+import { createPhotoAnswerMatcher, normalizePhotoAnswer } from "./photo-answer.js";
 import {
-  answerQuizTask, attemptLimit, beginQuizRun, loadQuizProgress, nextQuizTask, photoProgressKey,
+  answerQuizTask, attemptLimit, nextQuizTask,
   resumeQuizRun, saveQuizProgress, startQuizReview,
 } from "./quiz-progress.js";
 import { quizFeedback, renderQuizProgress, renderQuizSummary } from "./quiz-ui.js";
 
+const section = sectionFromSearch(location.search);
+const { keys, partIds, quiz, findUnlockCount } = createSectionProgress(section);
+
 function startPhotoLesson() {
+  applySectionPage(section, "photo");
+  const matchPhotoAnswer = createPhotoAnswerMatcher(section.parts);
   const taskView = document.querySelector("#photo-task");
   const summary = document.querySelector("#photo-summary");
   const summaryTitle = document.querySelector("#summary-title");
@@ -26,10 +33,12 @@ function startPhotoLesson() {
   const next = document.querySelector("#next-task");
 
   let state;
-  const activity = connectLessonActivity("photo", (active) => {
+  const saveNotice = createProgressNotice(() => activity.isActive());
+  const activity = connectLessonActivity(keys.activity, "photo", (active) => {
     inactive.hidden = active;
     taskView.inert = !active;
     summary.inert = !active;
+    saveNotice.setActive(active);
   });
 
   function render({ focus = false } = {}) {
@@ -38,7 +47,7 @@ function startPhotoLesson() {
     taskView.hidden = !task;
     summary.hidden = Boolean(task);
     if (!task) {
-      renderQuizSummary(summary, state);
+      renderQuizSummary(summary, state, section);
       if (focus) summaryTitle.focus();
       return;
     }
@@ -49,8 +58,8 @@ function startPhotoLesson() {
     const position = run.total - run.queue.length + 1;
     phase.textContent = `${run.phase === "review" ? "Закрепление" : "Основной круг"} · ${position} из ${run.total}`;
     attempt.textContent = `Попытка ${complete ? task.attempts : task.attempts + 1} из ${attemptLimit}`;
-    renderQuizProgress(progress, percent, state);
-    const organ = organCatalog[task.id];
+    renderQuizProgress(progress, percent, state, partIds.length);
+    const organ = section.parts[task.id];
     if (image.getAttribute("src") !== organ.photo) image.src = organ.photo;
     input.value = task.answer ?? "";
     input.setCustomValidity("");
@@ -62,19 +71,23 @@ function startPhotoLesson() {
     next.hidden = !missed;
     feedback.dataset.kind = run.feedback ?? "";
     const correctedName = task.corrected ? organ.name.toLocaleLowerCase("ru-RU") : undefined;
-    feedback.textContent = quizFeedback(run, task, correctedName);
+    feedback.textContent = quizFeedback(run, task, section.copy, correctedName);
     if (focus) input.focus();
   }
 
+  function save() {
+    saveNotice.write(keys.photo, () => saveQuizProgress(keys.photo, state));
+  }
+
   function commit(options) {
-    saveQuizProgress(photoProgressKey, state);
+    save();
     render(options);
   }
 
   function enter({ startNew = false } = {}) {
     activity.claim();
-    state = loadQuizProgress(photoProgressKey);
-    if (!state.run || (startNew && state.run.phase === "results")) beginQuizRun(state);
+    state = quiz.load(keys.photo);
+    if (!state.run || (startNew && state.run.phase === "results")) quiz.begin(state);
     resumeQuizRun(state.run);
     commit();
   }
@@ -88,7 +101,7 @@ function startPhotoLesson() {
     if (!activity.isActive() || input.readOnly) return;
     input.setCustomValidity("");
     state.run.queue[0].answer = input.value;
-    saveQuizProgress(photoProgressKey, state);
+    save();
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -100,7 +113,7 @@ function startPhotoLesson() {
     }
     if (run.feedback === "missed") return;
     if (!normalizePhotoAnswer(input.value)) {
-      input.setCustomValidity("Введи название органа.");
+      input.setCustomValidity(section.copy?.photoRequired ?? "Введи название.");
       input.reportValidity();
       return;
     }
@@ -128,7 +141,7 @@ function startPhotoLesson() {
   });
   document.querySelector("#repeat-photo").addEventListener("click", () => {
     if (!activity.isActive()) return;
-    beginQuizRun(state);
+    quiz.begin(state);
     commit({ focus: true });
   });
   document.querySelector("#continue-here").addEventListener("click", () => enter());
@@ -141,5 +154,5 @@ function startPhotoLesson() {
   document.querySelector("main").hidden = false;
 }
 
-if (loadFindProgress().credited.length < findUnlockCount) location.replace("./");
+if (quiz.load(keys.find).credited.length < findUnlockCount) location.replace(sectionHref(section, "home"));
 else startPhotoLesson();

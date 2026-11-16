@@ -1,6 +1,4 @@
-export const activityKey = "iznutri:active-lesson";
-
-export function activeLessonName() {
+export function activeLessonName(activityKey) {
   try {
     return localStorage.getItem(activityKey)?.split(":", 1)[0];
   } catch {
@@ -8,7 +6,7 @@ export function activeLessonName() {
   }
 }
 
-export function connectLessonActivity(name, onChange) {
+export function connectLessonActivity(activityKey, name, onChange) {
   const token = `${name}:${Date.now()}:${Math.random()}`;
   let canShare = true;
 
@@ -25,6 +23,7 @@ export function connectLessonActivity(name, onChange) {
   function claim() {
     try {
       localStorage.setItem(activityKey, token);
+      canShare = true;
     } catch {
       canShare = false;
     }

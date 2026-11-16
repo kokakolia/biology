@@ -1,4 +1,3 @@
-import { organCatalog, organIds } from "./organs.js";
 import { quizPercent } from "./quiz-progress.js";
 
 const creditLabels = {
@@ -11,15 +10,15 @@ function creditedForRun(state) {
   return run.practice ? run.practiceCredits ?? run.firstTry : state.credited;
 }
 
-export function renderQuizProgress(meter, percent, state) {
+export function renderQuizProgress(meter, percent, state, total) {
   const count = creditedForRun(state).length;
   meter.labels[0].textContent = state.run.practice ? "Прогресс прохода" : "Прогресс урока";
-  meter.max = organIds.length;
+  meter.max = total;
   meter.value = count;
-  percent.textContent = `${quizPercent(count)}%`;
+  percent.textContent = `${quizPercent(count, total)}%`;
 }
 
-export function renderQuizSummary(summary, state, nextThreshold) {
+export function renderQuizSummary(summary, state, section, nextThreshold) {
   const { run } = state;
   const summaryStudy = summary.querySelector("#summary-study");
   const repeatButton = summary.querySelector("[data-quiz-repeat]");
@@ -32,25 +31,28 @@ export function renderQuizSummary(summary, state, nextThreshold) {
   const reviewing = run.phase === "break";
   const scoreIds = creditedForRun(state);
   const count = scoreIds.length;
+  const entries = Object.entries(section.parts);
+  const total = entries.length;
+  const partNoun = section.copy?.countParts ?? "частей";
   summaryTitle.textContent = reviewing ? "Основной круг пройден" : "Результат";
-  summaryText.textContent = reviewing ? `На закреплении заданий: ${run.review.length}.` : `Зачтено за проход: ${count} из ${organIds.length}.`;
-  if (!reviewing && !run.practice) summaryText.textContent = `Зачтено органов: ${count} из ${organIds.length}.`;
-  summaryScore.textContent = `${quizPercent(count)}%`;
+  summaryText.textContent = reviewing ? `На закреплении заданий: ${run.review.length}.` : `Зачтено за проход: ${count} из ${total}.`;
+  if (!reviewing && !run.practice) summaryText.textContent = `Зачтено ${partNoun}: ${count} из ${total}.`;
+  summaryScore.textContent = `${quizPercent(count, total)}%`;
   summaryScore.hidden = reviewing;
   savedScore.hidden = reviewing || !run.practice;
   reviewButton.hidden = !reviewing;
   repeatButton.hidden = reviewing;
-  summaryStudy.hidden = reviewing || count === organIds.length;
+  summaryStudy.hidden = reviewing || count === total;
   const summaryNext = summary.querySelector("#summary-next");
   if (summaryNext) summaryNext.hidden = reviewing || count < nextThreshold;
   summaryList.hidden = reviewing;
   if (reviewing) return;
 
-  summaryList.replaceChildren(...organIds.map((id) => {
+  summaryList.replaceChildren(...entries.map(([id, part]) => {
     const item = document.createElement("li");
     const title = document.createElement("span");
     const result = document.createElement("span");
-    title.textContent = organCatalog[id].name;
+    title.textContent = part.name;
     const credited = scoreIds.includes(id);
     result.textContent = run.firstTry.includes(id)
       ? creditLabels[run.creditRounds?.[id]] ?? "Зачтён"
@@ -61,13 +63,15 @@ export function renderQuizSummary(summary, state, nextThreshold) {
   }));
 }
 
-export function quizFeedback(run, task, correctedName) {
+export function quizFeedback(run, task, copy, correctedName) {
   const reviewing = run.phase === "review";
   switch (run.feedback) {
     case "retry":
       return "Пока неверно. Попробуй ещё раз.";
     case "missed":
-      return reviewing ? "Пока неверно. Этот орган можно повторить позже." : "Пока неверно. Этот орган вернётся на закреплении.";
+      return reviewing
+        ? copy?.missedReview ?? "Пока неверно. Это задание можно повторить позже."
+        : copy?.missedMain ?? "Пока неверно. Задание вернётся на закреплении.";
     case "correct":
       if (correctedName) {
         const message = `Верно — ${correctedName}.`;

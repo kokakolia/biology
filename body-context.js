@@ -59,8 +59,7 @@ function contextMaterial(name) {
   return material;
 }
 
-export async function loadBodyContext(loader) {
-  const { scene } = await loader.loadAsync("./assets/body-context.glb");
+export function createBodyContextLayers(scene) {
   const bones = new THREE.Group();
   const meshes = new Map(scene.children.map((mesh) => [mesh.name, mesh]));
   const skin = meshes.get("skin");
@@ -72,6 +71,7 @@ export async function loadBodyContext(loader) {
     mesh.renderOrder = mesh === skin ? 2 : 1;
     if (mesh !== skin) bones.add(mesh);
   }
+  bones.visible = false;
   return { skin, bones };
 }
 

@@ -32,8 +32,8 @@
     <section id="photo-task" aria-labelledby="photo-title" hidden>
       <header class="photo-heading">
         <div>
-          <a class="lessons-link" href="./"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
-          <h1 id="photo-title">Узнай по фото</h1>
+          <a class="lessons-link" href="./" data-section-link="home"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
+          <h1 id="photo-title" data-section-text="photoTitle">Узнай по фото</h1>
         </div>
         <div class="photo-progress">
           <p id="photo-phase"></p>
@@ -47,15 +47,15 @@
 
       <div class="photo-card-content">
         <div class="photo-art">
-          <img id="organ-photo" width="700" height="470" alt="Орган для определения">
+          <img id="organ-photo" width="700" height="470" alt="Орган для определения" data-section-alt="photoAlt">
         </div>
         <form id="photo-form" class="photo-form" autocomplete="off">
           <div class="photo-question">
-            <label for="photo-answer">Как называется этот орган?</label>
+            <label for="photo-answer" data-section-text="photoQuestion">Как называется этот орган?</label>
             <span id="photo-attempt"></span>
           </div>
           <div class="photo-field">
-            <input type="text" id="photo-answer" name="answer" placeholder="Введи название органа…" maxlength="100" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" aria-describedby="photo-attempt" required>
+            <input type="text" id="photo-answer" name="answer" placeholder="Введи название органа…" data-section-placeholder="photoPlaceholder" maxlength="100" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" aria-describedby="photo-attempt" required>
             <button type="submit" id="photo-submit" class="lesson-button photo-submit" aria-label="Проверить ответ">
               <span id="photo-submit-label" hidden>Дальше</span>
               <svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg>
@@ -70,17 +70,17 @@
     </section>
 
     <section id="photo-summary" class="find-summary" aria-labelledby="summary-title" hidden>
-      <a class="lessons-link" href="./"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
-      <p class="lesson-topic">Узнай по фото</p>
+      <a class="lessons-link" href="./" data-section-link="home"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
+      <p class="lesson-topic" data-section-text="photoTitle">Узнай по фото</p>
       <h1 id="summary-title" tabindex="-1"></h1>
       <p id="summary-score" class="summary-score" hidden></p>
       <p id="summary-text"></p>
       <p id="summary-saved-score" class="saved-score" hidden>Сохранённый прогресс урока: 100%.</p>
-      <ul id="summary-list" class="summary-list" aria-label="Результаты по органам" hidden></ul>
+      <ul id="summary-list" class="summary-list" aria-label="Результаты по органам" data-section-label="resultParts" hidden></ul>
       <div class="summary-actions">
         <button type="button" id="start-review" class="lesson-button" hidden>Начать закрепление</button>
         <button type="button" id="repeat-photo" class="lesson-button secondary" data-quiz-repeat hidden>Повторить</button>
-        <a href="./study.html" id="summary-study" class="lesson-button secondary" hidden>Изучить</a>
+        <a href="./study.html" data-section-link="study" id="summary-study" class="lesson-button secondary" hidden>Изучить</a>
       </div>
     </section>
     <footer class="footer"><a href="./assets/ATTRIBUTION.txt">Модели BodyParts3D</a></footer>

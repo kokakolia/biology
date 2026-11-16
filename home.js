@@ -1,6 +1,11 @@
-import { findPercent, findProgressKey, findUnlockCount, loadFindProgress } from "./find-progress.js";
-import { loadQuizProgress, photoProgressKey } from "./quiz-progress.js";
-import { loadStudyMarks, studyProgressKey, studyPercent, studyUnlockMarks } from "./study-progress.js";
+import { sectionFromSearch } from "./sections.js";
+import { applySectionPage } from "./section-page.js";
+import { createSectionProgress } from "./section-progress.js";
+import { quizPercent } from "./quiz-progress.js";
+
+const section = sectionFromSearch(location.search);
+const { keys, partIds, study, quiz, findUnlockCount } = createSectionProgress(section);
+applySectionPage(section, "home");
 
 const meter = document.querySelector("#study-meter");
 const percentOutput = document.querySelector("#study-percent");
@@ -24,15 +29,15 @@ function quizAction(run) {
 }
 
 function renderProgress() {
-  const count = loadStudyMarks().size;
-  const percent = studyPercent(count);
+  const count = study.load().size;
+  const percent = study.percent(count);
   meter.value = percent;
   percentOutput.textContent = `${percent}%`;
   studyAction.textContent = percent === 0 ? "Начать" : percent === 100 ? "Повторить" : "Продолжить";
 
-  const findAvailable = count >= studyUnlockMarks;
-  const find = loadFindProgress();
-  const score = findPercent(find.credited.length);
+  const findAvailable = count >= study.unlockCount;
+  const find = quiz.load(keys.find);
+  const score = quizPercent(find.credited.length, partIds.length);
   findCard.dataset.status = findAvailable ? "available" : "locked";
   findLock.hidden = findAvailable;
   findEntry.hidden = !findAvailable;
@@ -44,8 +49,8 @@ function renderProgress() {
   photoCard.dataset.status = photoAvailable ? "available" : "locked";
   photoLock.hidden = photoAvailable;
   photoEntry.hidden = !photoAvailable;
-  const photo = loadQuizProgress(photoProgressKey);
-  const photoScore = findPercent(photo.credited.length);
+  const photo = quiz.load(keys.photo);
+  const photoScore = quizPercent(photo.credited.length, partIds.length);
   photoMeter.value = photoScore;
   photoPercent.textContent = `${photoScore}%`;
   photoStatus.textContent = quizAction(photo.run);
@@ -54,5 +59,5 @@ function renderProgress() {
 renderProgress();
 window.addEventListener("pageshow", renderProgress);
 window.addEventListener("storage", (event) => {
-  if (event.key === studyProgressKey || event.key === findProgressKey || event.key === photoProgressKey || event.key === null) renderProgress();
+  if (event.key === keys.study || event.key === keys.find || event.key === keys.photo || event.key === null) renderProgress();
 });

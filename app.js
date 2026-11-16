@@ -1,9 +1,14 @@
-import { loadStudyMarks, parseStudyMarks, studyMarkTotal, studyPercent, studyProgressKey, studyUnlockMarks } from "./study-progress.js";
-import { organCatalog, organIds } from "./organs.js";
 import { activeLessonName, connectLessonActivity } from "./lesson-activity.js";
 import { startFindLesson } from "./find-lesson.js";
-import { pauseQuizForStudy } from "./quiz-progress.js";
+import { createProgressNotice } from "./progress-notice.js";
 import { createTorsoViewer } from "./torso-viewer.js";
+import { sectionFromSearch, sectionHref } from "./sections.js";
+import { applySectionPage } from "./section-page.js";
+import { createSectionProgress } from "./section-progress.js";
+
+const section = sectionFromSearch(location.search);
+const progressData = createSectionProgress(section);
+const { keys, partIds, study, quiz } = progressData;
 
 const rows = new Map();
 
@@ -18,29 +23,28 @@ const reference = document.querySelector("#reference");
 const referenceTitle = document.querySelector("#reference-title");
 const referenceLocation = document.querySelector("#reference-location");
 const referenceFunction = document.querySelector("#reference-function");
-const viewButtons = [...document.querySelectorAll("[data-view]")];
+const viewButtons = new Map();
 const progress = document.querySelector("#progress");
 const progressPercent = document.querySelector("#progress-percent");
-const marks = loadStudyMarks();
+const marks = study.load();
 let viewer;
+let studySaveNotice;
 let selectionLocked = false;
 
 function updateProgress() {
   progress.value = marks.size;
-  progress.setAttribute("aria-valuetext", `${marks.size} из ${studyMarkTotal} отметок`);
-  progressPercent.textContent = `${studyPercent(marks.size)}%`;
+  progress.setAttribute("aria-valuetext", `${marks.size} из ${study.total} отметок`);
+  progressPercent.textContent = `${study.percent(marks.size)}%`;
 }
 
 function recordMark(mark) {
   if (marks.has(mark)) return;
   marks.add(mark);
-  try {
-    for (const saved of loadStudyMarks()) marks.add(saved);
-    localStorage.setItem(studyProgressKey, JSON.stringify([...marks]));
-  } catch {
-    // The lesson still tracks progress in memory when storage is unavailable.
-  }
-  updateProgress();
+  studySaveNotice.write(keys.study, () => {
+    const saved = study.save(marks);
+    updateProgress();
+    return saved;
+  });
 }
 
 function setReference(open) {
@@ -68,7 +72,7 @@ function selectOrgan(clickedId) {
   const row = rows.get(id);
   row.element.dataset.selected = "true";
   if (!isFind) {
-    const organ = organCatalog[id];
+    const organ = section.parts[id];
     row.pickButton.setAttribute("aria-pressed", "true");
     selectionName.textContent = organ.name;
     referenceTitle.textContent = organ.name;
@@ -83,7 +87,7 @@ function updateVisibility(id) {
   const removed = !viewer.isOrganVisible(id);
   row.element.dataset.removed = String(removed);
   row.pickButton?.setAttribute("aria-disabled", String(removed));
-  const action = removed ? "Вернуть на торс" : "Убрать с обзора";
+  const action = removed ? (section.copy?.restore ?? "Вернуть на модель") : "Убрать с обзора";
   const label = `${action} · ${row.label}`;
   row.visibilityButton.setAttribute("aria-label", label);
   row.visibilityButton.title = label;
@@ -113,8 +117,8 @@ function resetScene() {
 
 function makeRows() {
   const list = document.querySelector("#organ-list");
-  for (const [index, id] of organIds.entries()) {
-    const organ = organCatalog[id];
+  for (const [index, id] of partIds.entries()) {
+    const organ = section.parts[id];
     const row = document.createElement("li");
     row.className = "organ-row";
     const preview = `<span class="organ-preview"><img alt="" width="50" height="44"></span>`;
@@ -130,7 +134,7 @@ function makeRows() {
     row.querySelector("img").src = viewer.thumbnail(id);
     const pickButton = row.querySelector(".organ-pick");
     const visibilityButton = row.querySelector(".visibility");
-    const label = isFind ? `орган ${index + 1}` : organ.name;
+    const label = isFind ? `${section.copy?.anonymousPart ?? "часть"} ${index + 1}` : organ.name;
     rows.set(id, { element: row, pickButton, visibilityButton, label });
     if (pickButton) {
       row.querySelector(".organ-name").textContent = organ.name;
@@ -144,19 +148,46 @@ function makeRows() {
   }
 }
 
-function attachEvents() {
-  for (const button of viewButtons) {
-    button.addEventListener("click", () => viewer.setView(button.dataset.view));
-    button.disabled = false;
+function makeSceneControls(config) {
+  const views = document.querySelector(".view-controls");
+  for (const [id, { label }] of Object.entries(config.camera.views)) {
+    if (!label) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.setAttribute("aria-pressed", String(id === config.camera.initialView));
+    button.addEventListener("click", () => viewer.setView(id));
+    views.append(button);
+    viewButtons.set(id, button);
   }
-  for (const [id, layer] of [["torso-toggle", "skin"], ["bones-toggle", "bones"]]) {
-    const button = document.getElementById(id);
-    button.disabled = false;
-    button.addEventListener("click", () => {
-      button.setAttribute("aria-pressed", String(viewer.toggleLayer(layer)));
-    });
-  }
+  views.hidden = !views.childElementCount;
 
+  const layers = document.querySelector(".context-controls");
+  for (const [id, { label, icon }] of Object.entries(config.context?.controls ?? {})) {
+    const visible = viewer.layerVisible(id);
+    if (visible === undefined) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("aria-pressed", String(visible));
+    if (icon) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const use = document.createElementNS(svg.namespaceURI, "use");
+      svg.setAttribute("class", "icon");
+      svg.setAttribute("aria-hidden", "true");
+      use.setAttribute("href", `#icon-${icon}`);
+      svg.append(use);
+      button.append(svg);
+    }
+    button.append(label);
+    button.addEventListener("click", () => {
+      button.setAttribute("aria-pressed", String(viewer.toggleLayer(id)));
+    });
+    layers.append(button);
+  }
+  layers.hidden = !layers.childElementCount;
+}
+
+function attachEvents() {
   remove.addEventListener("click", () => {
     const id = viewer.selected;
     if (!id) return;
@@ -177,56 +208,65 @@ function attachEvents() {
     }
   });
   window.addEventListener("storage", (event) => {
-    if (event.key !== studyProgressKey) return;
-    for (const mark of parseStudyMarks(event.newValue)) marks.add(mark);
+    if (event.key !== keys.study) return;
+    for (const mark of study.parse(event.newValue)) marks.add(mark);
     updateProgress();
   });
 }
 
 async function start() {
+  applySectionPage(section, isFind ? "find" : "study");
   if (isFind) {
-    if (marks.size < studyUnlockMarks) {
-      location.replace("./");
+    if (marks.size < study.unlockCount) {
+      location.replace(sectionHref(section, "home"));
       return;
     }
-    startFindLesson({ reset: resetScene, selected: () => viewer?.selected ?? null, setLocked: setSelectionLocked });
+    startFindLesson({ reset: resetScene, selected: () => viewer?.selected ?? null, setLocked: setSelectionLocked }, section, progressData);
   } else {
-    progress.max = studyMarkTotal;
+    progress.max = study.total;
     updateProgress();
     const inactive = document.querySelector("#lesson-inactive");
     const layout = document.querySelector(".layout");
-    const activity = connectLessonActivity("study", (active) => {
+    studySaveNotice = createProgressNotice(() => activity.isActive());
+    const activity = connectLessonActivity(keys.activity, "study", (active) => {
       inactive.hidden = active;
       layout.inert = !active;
+      studySaveNotice.setActive(active);
     });
     function enterStudy() {
-      const previous = activeLessonName();
+      const previous = activeLessonName(keys.activity);
       activity.claim();
-      pauseQuizForStudy(previous);
+      if (previous === "find" || previous === "photo") {
+        studySaveNotice.write(keys[previous], () => quiz.pauseForStudy(keys[previous]));
+      }
     }
     enterStudy();
     document.querySelector("#continue-here").addEventListener("click", enterStudy);
     window.addEventListener("pageshow", (event) => {
       if (!event.persisted) return;
       enterStudy();
-      for (const mark of loadStudyMarks()) marks.add(mark);
+      for (const mark of study.load()) marks.add(mark);
       updateProgress();
     });
   }
   try {
-    viewer = await createTorsoViewer(stage, {
-      catalog: organCatalog,
-      label: "Вращаемая модель торса с шестью органами пищеварения",
+    const config = {
+      ...section.scene,
+      label: section.scene.label ?? section.title,
+      model: { ...section.scene.model, organs: section.parts },
+    };
+    viewer = await createTorsoViewer(stage, config, {
       ghostHidden: isFind,
       onPick(id) {
         if (!selectionLocked) selectOrgan(id);
       },
       onViewChange(views) {
-        for (const button of viewButtons) {
-          button.setAttribute("aria-pressed", String(views[button.dataset.view]));
+        for (const [id, button] of viewButtons) {
+          button.setAttribute("aria-pressed", String(views[id]));
         }
       },
     });
+    makeSceneControls(config);
     makeRows();
     setSelectionLocked(selectionLocked);
     attachEvents();

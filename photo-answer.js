@@ -1,12 +1,6 @@
-import { organCatalog } from "./organs.js";
-
 export function normalizePhotoAnswer(value) {
   return value.normalize("NFC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("ru-RU");
 }
-
-const names = new Map(Object.entries(organCatalog).flatMap(([id, { name, aliases = [] }]) =>
-  [name, ...aliases].map((answer) => [normalizePhotoAnswer(answer), id]),
-));
 
 function oneEditApart(left, right) {
   if (left.length < right.length) [left, right] = [right, left];
@@ -22,15 +16,20 @@ function oneEditApart(left, right) {
     (swapped && left.slice(index + 2) === right.slice(index + 2));
 }
 
-export function matchPhotoAnswer(answer) {
-  const text = normalizePhotoAnswer(answer);
-  const exact = names.get(text);
-  if (exact) return { id: exact, corrected: false };
+export function createPhotoAnswerMatcher(parts) {
+  const names = new Map(Object.entries(parts).flatMap(([id, { name, aliases = [] }]) =>
+    [name, ...aliases].map((answer) => [normalizePhotoAnswer(answer), id]),
+  ));
+  return (answer) => {
+    const text = normalizePhotoAnswer(answer);
+    const exact = names.get(text);
+    if (exact) return { id: exact, corrected: false };
 
-  const matches = new Set();
-  for (const [name, id] of names) {
-    if (oneEditApart(name, text)) matches.add(id);
-  }
-  if (matches.size === 1) return { id: matches.values().next().value, corrected: true };
-  return { id: null, corrected: false };
+    const matches = new Set();
+    for (const [name, id] of names) {
+      if (oneEditApart(name, text)) matches.add(id);
+    }
+    if (matches.size === 1) return { id: matches.values().next().value, corrected: true };
+    return { id: null, corrected: false };
+  };
 }

@@ -1,12 +1,11 @@
-import { organCatalog } from "./organs.js";
 import { connectLessonActivity } from "./lesson-activity.js";
+import { createProgressNotice } from "./progress-notice.js";
 import { quizFeedback, renderQuizProgress, renderQuizSummary } from "./quiz-ui.js";
 import {
-  answerFindTask, attemptLimit, beginFindRun, findUnlockCount,
-  loadFindProgress, nextFindTask, resumeFindRun, saveFindProgress, startFindReview,
-} from "./find-progress.js";
+  answerQuizTask, attemptLimit, nextQuizTask, resumeQuizRun, saveQuizProgress, startQuizReview,
+} from "./quiz-progress.js";
 
-export function startFindLesson(scene) {
+export function startFindLesson(scene, section, { keys, partIds, quiz, findUnlockCount }) {
   const layout = document.querySelector(".find-layout");
   const inactive = document.querySelector("#lesson-inactive");
   const summary = document.querySelector("#find-summary");
@@ -25,10 +24,12 @@ export function startFindLesson(scene) {
   const percent = document.querySelector("#progress-percent");
 
   let state;
-  const activity = connectLessonActivity("find", (active) => {
+  const saveNotice = createProgressNotice(() => activity.isActive());
+  const activity = connectLessonActivity(keys.activity, "find", (active) => {
     inactive.hidden = active;
     layout.inert = !active;
     summary.inert = !active;
+    saveNotice.setActive(active);
   });
 
   function render({ focus = false } = {}) {
@@ -37,7 +38,7 @@ export function startFindLesson(scene) {
     layout.hidden = !task;
     summary.hidden = Boolean(task);
     if (!task) {
-      renderQuizSummary(summary, state, findUnlockCount);
+      renderQuizSummary(summary, state, section, findUnlockCount);
       if (focus) summaryTitle.focus();
       return;
     }
@@ -48,9 +49,9 @@ export function startFindLesson(scene) {
     const missed = run.feedback === "missed";
     const complete = correct || missed;
     phase.textContent = `${reviewing ? "Закрепление" : "Основной круг"} · ${position} из ${run.total}`;
-    prompt.textContent = organCatalog[task.id].prompt;
+    prompt.textContent = section.parts[task.id].prompt;
     attempt.textContent = `Попытка ${complete ? task.attempts : task.attempts + 1} из ${attemptLimit}`;
-    renderQuizProgress(progress, percent, state);
+    renderQuizProgress(progress, percent, state, partIds.length);
     scene.setLocked(complete);
     selection.hidden = !correct && !scene.selected();
     remove.hidden = correct && !scene.selected();
@@ -58,26 +59,26 @@ export function startFindLesson(scene) {
     confirm.disabled = missed;
     next.hidden = !missed;
     feedback.dataset.kind = run.feedback ?? "";
-    feedback.textContent = quizFeedback(run, task);
+    feedback.textContent = quizFeedback(run, task, section.copy);
     if (focus) prompt.focus();
   }
 
   function commit(options) {
-    saveFindProgress(state);
+    saveNotice.write(keys.find, () => saveQuizProgress(keys.find, state));
     render(options);
   }
 
   function enter({ startNew = false } = {}) {
     activity.claim();
-    state = loadFindProgress();
-    if (!state.run || (startNew && state.run.phase === "results")) beginFindRun(state);
-    resumeFindRun(state.run);
+    state = quiz.load(keys.find);
+    if (!state.run || (startNew && state.run.phase === "results")) quiz.begin(state);
+    resumeQuizRun(state.run);
     scene.reset();
     commit();
   }
 
   function advance() {
-    nextFindTask(state.run);
+    nextQuizTask(state.run);
     scene.reset();
     commit({ focus: true });
   }
@@ -87,7 +88,7 @@ export function startFindLesson(scene) {
     if (state.run.feedback === "correct") {
       advance();
     } else if (scene.selected()) {
-      answerFindTask(state, scene.selected());
+      answerQuizTask(state, scene.selected());
       commit();
       if (!next.hidden) next.focus();
     }
@@ -97,13 +98,13 @@ export function startFindLesson(scene) {
   });
   reviewButton.addEventListener("click", () => {
     if (!activity.isActive()) return;
-    startFindReview(state.run);
+    startQuizReview(state.run);
     scene.reset();
     commit({ focus: true });
   });
   repeatButton.addEventListener("click", () => {
     if (!activity.isActive()) return;
-    beginFindRun(state);
+    quiz.begin(state);
     scene.reset();
     commit({ focus: true });
   });

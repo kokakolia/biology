@@ -38,16 +38,16 @@
     <div class="layout find-layout" hidden>
       <aside class="panel" aria-labelledby="title">
         <header class="lesson-heading">
-          <a class="lessons-link" href="./"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
-          <p class="lesson-topic">Пищеварение</p>
-          <h1 id="title">Найди орган</h1>
+          <a class="lessons-link" href="./" data-section-link="home"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
+          <p class="lesson-topic" data-section-text="sectionTitle">Пищеварение</p>
+          <h1 id="title" data-section-text="findTitle">Найди орган</h1>
         </header>
         <section class="task-card" aria-labelledby="find-prompt">
           <p id="find-phase" class="find-phase"></p>
           <h2 id="find-prompt" tabindex="-1"></h2>
           <p id="find-attempt" class="find-attempt"></p>
         </section>
-        <ul id="organ-list" class="organ-list" aria-label="Видимость органов"></ul>
+        <ul id="organ-list" class="organ-list" aria-label="Видимость органов" data-section-label="findList"></ul>
         <div class="find-response">
           <p id="find-feedback" class="find-feedback" role="status" aria-live="polite"></p>
           <button type="button" id="next-task" class="lesson-button" hidden>Дальше</button>
@@ -61,18 +61,14 @@
       <section class="viewer" aria-label="Интерактивная 3D-модель">
         <div id="stage" class="stage" aria-busy="true">
           <header class="stage-header">
-            <h2>Органы пищеварения</h2>
+            <h2 data-section-text="sceneTitle">Органы пищеварения</h2>
           </header>
           <div id="loading" class="loading" role="status">Загружаем 3D-модель…</div>
         </div>
         <div class="viewer-tools">
-          <div class="view-controls" role="group" aria-label="Ракурс">
-            <button type="button" data-view="front" aria-pressed="true" disabled>Спереди</button>
-            <button type="button" data-view="back" aria-pressed="false" disabled>Сзади</button>
+          <div class="view-controls" role="group" aria-label="Ракурс" hidden>
           </div>
-          <div class="context-controls" role="group" aria-label="Слои тела">
-            <button type="button" id="torso-toggle" aria-pressed="true" disabled>Оболочка</button>
-            <button type="button" id="bones-toggle" aria-pressed="false" disabled><svg class="icon" aria-hidden="true"><use href="#icon-bone"/></svg>Кости</button>
+          <div class="context-controls" role="group" aria-label="Слои тела" data-section-label="layerGroup" hidden>
           </div>
         </div>
         <div id="selection" class="selection" hidden>
@@ -81,22 +77,22 @@
             <button type="button" id="confirm-organ" class="lesson-button">Подтвердить</button>
           </div>
         </div>
-        <p class="viewer-hint"><svg class="icon" aria-hidden="true"><use href="#icon-rotate"/></svg> <span class="hint-pointer">Потяни мышью, чтобы повернуть торс</span><span class="hint-touch">Проведи пальцем по торсу, чтобы повернуть его</span></p>
+        <p class="viewer-hint"><svg class="icon" aria-hidden="true"><use href="#icon-rotate"/></svg> <span class="hint-pointer" data-section-text="pointerHint">Потяни мышью, чтобы повернуть торс</span><span class="hint-touch" data-section-text="touchHint">Проведи пальцем по торсу, чтобы повернуть его</span></p>
       </section>
     </div>
     <section id="find-summary" class="find-summary" aria-labelledby="summary-title" hidden>
-      <a class="lessons-link" href="./"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
-      <p class="lesson-topic">Найди орган</p>
+      <a class="lessons-link" href="./" data-section-link="home"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
+      <p class="lesson-topic" data-section-text="findTitle">Найди орган</p>
       <h1 id="summary-title" tabindex="-1"></h1>
       <p id="summary-score" class="summary-score" hidden></p>
       <p id="summary-text"></p>
       <p id="summary-saved-score" class="saved-score" hidden>Сохранённый прогресс урока: 100%.</p>
-      <ul id="summary-list" class="summary-list" aria-label="Результаты по органам" hidden></ul>
+      <ul id="summary-list" class="summary-list" aria-label="Результаты по органам" data-section-label="resultParts" hidden></ul>
       <div class="summary-actions">
         <button type="button" id="start-review" class="lesson-button" hidden>Начать закрепление</button>
         <button type="button" id="repeat-find" class="lesson-button secondary" data-quiz-repeat hidden>Повторить</button>
-        <a href="./study.html" id="summary-study" class="lesson-button secondary" hidden>Изучить</a>
-        <a href="./photo.html" id="summary-next" class="lesson-button" hidden>На следующий урок</a>
+        <a href="./study.html" data-section-link="study" id="summary-study" class="lesson-button secondary" hidden>Изучить</a>
+        <a href="./photo.html" data-section-link="photo" id="summary-next" class="lesson-button" hidden>На следующий урок</a>
       </div>
     </section>
     <footer class="footer"><a href="./assets/ATTRIBUTION.txt">Модели BodyParts3D</a></footer>
