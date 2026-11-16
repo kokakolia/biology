@@ -1,18 +1,12 @@
+import { organCatalog } from "./organs.js";
+
 export function normalizePhotoAnswer(value) {
   return value.normalize("NFC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("ru-RU");
 }
 
-const names = new Map([
-  ["пищевод", "esophagus"],
-  ["желудок", "stomach"],
-  ["печень", "liver"],
-  ["поджелудочная железа", "pancreas"],
-  ["поджелудочная", "pancreas"],
-  ["тонкая кишка", "small-intestine"],
-  ["тонкий кишечник", "small-intestine"],
-  ["толстая кишка", "large-intestine"],
-  ["толстый кишечник", "large-intestine"],
-]);
+const names = new Map(Object.entries(organCatalog).flatMap(([id, { name, aliases = [] }]) =>
+  [name, ...aliases].map((answer) => [normalizePhotoAnswer(answer), id]),
+));
 
 function oneEditApart(left, right) {
   if (left.length < right.length) [left, right] = [right, left];

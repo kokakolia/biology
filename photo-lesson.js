@@ -8,15 +8,6 @@ import {
 } from "./quiz-progress.js";
 import { quizFeedback, renderQuizProgress, renderQuizSummary } from "./quiz-ui.js";
 
-const imagePaths = {
-  esophagus: "./assets/photo-esophagus.webp",
-  stomach: "./assets/lesson-study.webp",
-  liver: "./assets/lesson-photo.webp",
-  pancreas: "./assets/photo-pancreas.webp",
-  "small-intestine": "./assets/photo-small-intestine.webp",
-  "large-intestine": "./assets/photo-large-intestine.webp",
-};
-
 function startPhotoLesson() {
   const taskView = document.querySelector("#photo-task");
   const summary = document.querySelector("#photo-summary");
@@ -59,8 +50,8 @@ function startPhotoLesson() {
     phase.textContent = `${run.phase === "review" ? "Закрепление" : "Основной круг"} · ${position} из ${run.total}`;
     attempt.textContent = `Попытка ${complete ? task.attempts : task.attempts + 1} из ${attemptLimit}`;
     renderQuizProgress(progress, percent, state);
-    const source = imagePaths[task.id];
-    if (image.getAttribute("src") !== source) image.src = source;
+    const organ = organCatalog[task.id];
+    if (image.getAttribute("src") !== organ.photo) image.src = organ.photo;
     input.value = task.answer ?? "";
     input.setCustomValidity("");
     input.readOnly = complete;
@@ -70,7 +61,7 @@ function startPhotoLesson() {
     submit.disabled = missed;
     next.hidden = !missed;
     feedback.dataset.kind = run.feedback ?? "";
-    const correctedName = task.corrected ? organCatalog[task.id].name.toLocaleLowerCase("ru-RU") : undefined;
+    const correctedName = task.corrected ? organ.name.toLocaleLowerCase("ru-RU") : undefined;
     feedback.textContent = quizFeedback(run, task, correctedName);
     if (focus) input.focus();
   }
