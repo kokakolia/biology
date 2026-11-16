@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+  <meta name="description" content="Узнай органы пищеварения по изображениям из 3D-модели.">
+  <title>Узнай по фото — Изнутри</title>
+  <link rel="stylesheet" href="./styles.css?v=phone">
+  <link rel="stylesheet" href="./home.css">
+  <link rel="stylesheet" href="./find.css">
+  <link rel="stylesheet" href="./photo.css">
+  <script type="module" src="./photo-lesson.js"></script>
+</head>
+<body class="home photo-lesson">
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="icon-book" viewBox="0 0 24 24"><path d="M12 6.5C9.5 4.8 6.8 4.3 3.5 5v13c3.3-.7 6-.2 8.5 1.5 2.5-1.7 5.2-2.2 8.5-1.5V5c-3.3-.7-6-.2-8.5 1.5Zm0 0v13"/></symbol>
+    <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+    <symbol id="icon-back" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></symbol>
+  </svg>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>Изнутри<span class="brand-period">.</span></div>
+      <div class="subject"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg> Биология <span aria-hidden="true">·</span> 8 класс</div>
+    </div>
+  </header>
+
+  <main class="workspace photo-workspace" hidden>
+    <section id="lesson-inactive" class="lesson-inactive" aria-label="Урок на паузе" hidden>
+      <p>Другой урок или вкладка активны. Продолжи здесь, чтобы вернуться к заданию.</p>
+      <button class="lesson-button" type="button" id="continue-here">Продолжить здесь</button>
+    </section>
+    <section id="photo-task" aria-labelledby="photo-title" hidden>
+      <header class="photo-heading">
+        <div>
+          <a class="lessons-link" href="./"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
+          <h1 id="photo-title">Узнай по фото</h1>
+        </div>
+        <div class="photo-progress">
+          <p id="photo-phase"></p>
+          <label for="photo-progress">Прогресс урока</label>
+          <div class="photo-meter">
+            <progress id="photo-progress" max="6" value="0"></progress>
+            <span id="photo-percent" aria-hidden="true">0%</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="photo-card-content">
+        <div class="photo-art">
+          <img id="organ-photo" width="700" height="470" alt="Орган для определения">
+        </div>
+        <form id="photo-form" class="photo-form" autocomplete="off">
+          <div class="photo-question">
+            <label for="photo-answer">Как называется этот орган?</label>
+            <span id="photo-attempt"></span>
+          </div>
+          <div class="photo-field">
+            <input type="text" id="photo-answer" name="answer" placeholder="Введи название органа…" maxlength="100" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" aria-describedby="photo-attempt" required>
+            <button type="submit" id="photo-submit" class="lesson-button photo-submit" aria-label="Проверить ответ">
+              <span id="photo-submit-label" hidden>Дальше</span>
+              <svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg>
+            </button>
+          </div>
+        </form>
+        <div class="find-response photo-response">
+          <p id="photo-feedback" class="find-feedback" role="status" aria-live="polite"></p>
+          <button type="button" id="next-task" class="lesson-button" hidden>Дальше</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="photo-summary" class="find-summary" aria-labelledby="summary-title" hidden>
+      <a class="lessons-link" href="./"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
+      <p class="lesson-topic">Узнай по фото</p>
+      <h1 id="summary-title" tabindex="-1"></h1>
+      <p id="summary-score" class="summary-score" hidden></p>
+      <p id="summary-text"></p>
+      <p id="summary-saved-score" class="saved-score" hidden>Сохранённый прогресс урока: 100%.</p>
+      <ul id="summary-list" class="summary-list" aria-label="Результаты по органам" hidden></ul>
+      <div class="summary-actions">
+        <button type="button" id="start-review" class="lesson-button" hidden>Начать закрепление</button>
+        <button type="button" id="repeat-photo" class="lesson-button secondary" data-quiz-repeat hidden>Повторить</button>
+        <a href="./study.html" id="summary-study" class="lesson-button secondary" hidden>Изучить</a>
+      </div>
+    </section>
+    <footer class="footer"><a href="./assets/ATTRIBUTION.txt">Модели BodyParts3D</a></footer>
+  </main>
+</body>
+</html>

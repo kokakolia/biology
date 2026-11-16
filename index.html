@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Уроки о пищеварительной системе для 8 класса.">
+  <title>Пищеварение — Изнутри</title>
+  <link rel="stylesheet" href="./styles.css?v=phone">
+  <link rel="stylesheet" href="./home.css">
+  <script type="module" src="./home.js"></script>
+</head>
+<body class="home">
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="icon-book" viewBox="0 0 24 24"><path d="M12 6.5C9.5 4.8 6.8 4.3 3.5 5v13c3.3-.7 6-.2 8.5 1.5 2.5-1.7 5.2-2.2 8.5-1.5V5c-3.3-.7-6-.2-8.5 1.5Zm0 0v13"/></symbol>
+    <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4.5v2"/></symbol>
+  </svg>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>Изнутри<span class="brand-period">.</span></div>
+      <div class="subject"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg> Биология <span aria-hidden="true">·</span> 8 класс</div>
+    </div>
+  </header>
+
+  <main class="home-workspace" aria-labelledby="home-title">
+    <h1 id="home-title">Пищеварение</h1>
+    <ul class="lesson-grid" aria-label="Уроки">
+      <li class="lesson-card study-card" data-status="available">
+        <div class="lesson-art"><img src="./assets/lesson-study.webp" width="700" height="470" alt=""></div>
+        <div class="lesson-details">
+          <h2 id="study-title">Изучи</h2>
+          <div class="lesson-meter">
+            <progress id="study-meter" max="100" value="0" aria-label="Прогресс урока «Изучи»"></progress>
+            <span id="study-percent" aria-hidden="true">0%</span>
+          </div>
+          <div class="lesson-action">
+            <a class="enter-lesson" href="./study.html" aria-labelledby="study-action study-title">
+              <span id="study-action">Начать</span><span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></span>
+            </a>
+          </div>
+        </div>
+      </li>
+      <li id="find-card" class="lesson-card find-card" data-status="locked">
+        <div class="lesson-art"><img src="./assets/lesson-find.webp" width="700" height="470" alt=""></div>
+        <div class="lesson-details">
+          <h2 id="find-title">Найди орган</h2>
+          <div class="lesson-meter">
+            <progress id="find-meter" max="100" value="0" aria-label="Прогресс урока «Найди орган»"></progress><span id="find-percent" aria-hidden="true">0%</span>
+          </div>
+          <div class="lesson-action">
+            <div id="find-lock" class="unavailable-lesson">
+              <span>Достигни 50% в «Изучи»</span>
+              <span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg></span>
+            </div>
+            <a id="find-entry" class="enter-lesson" href="./find.html" aria-labelledby="find-status find-title" hidden>
+              <span id="find-status">Начать</span><span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></span>
+            </a>
+          </div>
+        </div>
+      </li>
+      <li id="photo-card" class="lesson-card photo-card" data-status="locked">
+        <div class="lesson-art"><img src="./assets/lesson-photo.webp" width="700" height="470" alt=""></div>
+        <div class="lesson-details">
+          <h2 id="photo-title">Узнай по фото</h2>
+          <div class="lesson-meter">
+            <progress id="photo-meter" max="100" value="0" aria-label="Прогресс урока «Узнай по фото»"></progress><span id="photo-percent" aria-hidden="true">0%</span>
+          </div>
+          <div class="lesson-action">
+            <div id="photo-lock" class="unavailable-lesson">
+              <span>Достигни 50% в «Найди орган»</span>
+              <span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg></span>
+            </div>
+            <a id="photo-entry" class="enter-lesson" href="./photo.html" aria-labelledby="photo-status photo-title" hidden>
+              <span id="photo-status">Начать</span><span class="action-icon"><svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></span>
+            </a>
+          </div>
+        </div>
+      </li>
+    </ul>
+    <footer class="footer home-footer"><a href="./assets/ATTRIBUTION.txt">Модели BodyParts3D</a></footer>
+  </main>
+</body>
+</html>

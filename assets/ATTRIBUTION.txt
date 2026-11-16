@@ -1,0 +1,25 @@
+BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International.
+
+Source: https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html
+License: https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html
+
+Source geometry: BodyParts3D 4.0, PART-OF Wavefront OBJ archive.
+Esophagus: FJ2563. Stomach: FJ2564. Pancreas: FJ2629 (parenchyma).
+Liver: tissue segments FJ2409, FJ2816, FJ2818–FJ2824.
+Small intestine: FJ2573–FJ2628. Large intestine: FJ2566–FJ2572.
+Torso: exterior surface FJ2810 cropped at the neck, sides, and lower pelvis.
+Body context (body-context.glb): uncut skin FJ2810, rib cage, cervical and thoracic
+vertebrae, and bones of the shoulder girdles, arms and hands, selected from the
+same PART-OF archive. The viewer fades these layers without cutting triangles.
+See the 2025 archive notice above for the current license of the original meshes.
+Adaptations: grouping and cropping as described above, rounding geometry at export,
+and shared rotation, centering, scaling, colors, and transparency in the viewer.
+Organ material trial (organ-material-trial.glb): local base color, normal, and
+roughness added to FJ2563, FJ2564, FJ2629, the liver, and both intestines.
+Face coordinates and normals are copied from the source OBJs. The GLB retains
+their common BodyParts3D space.
+
+Static WebP illustrations on the lesson menu and in the photo quiz are renders
+of the organs from organ-material-trial.glb. The stomach and liver illustrations
+are reused in both places. The menu illustration for Find the Organ combines
+the two intestines, which are rendered separately in the photo quiz.

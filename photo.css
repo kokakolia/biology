@@ -1,0 +1,61 @@
+.photo-workspace { max-width: 1170px; padding-bottom: 10px; }
+.photo-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; margin-bottom: clamp(18px, 3vh, 26px); }
+.photo-heading .lessons-link { margin-bottom: 7px; }
+.photo-heading h1 { font-size: clamp(38px, 5.1vw, 67px); line-height: 1.04; }
+.photo-progress { width: clamp(160px, 21vw, 242px); padding: 10px 13px 9px; border: 1px solid var(--glass-rim); border-radius: 14px; background: var(--glass-panel); box-shadow: var(--glass-edge); }
+.photo-progress p { margin: 0 0 4px; color: var(--green); font-size: 13px; font-weight: 690; }
+.photo-progress label { display: block; margin-bottom: 2px; color: var(--muted); font-size: 12px; }
+.photo-meter { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
+.photo-meter span { color: var(--green); font-size: 13px; font-weight: 720; font-variant-numeric: tabular-nums; }
+.photo-card-content { width: min(100%, 770px); margin-inline: auto; }
+.photo-art {
+  display: grid;
+  height: clamp(234px, 44svh, 445px);
+  width: 89%;
+  margin: 0 auto 18px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--glass-rim);
+  border-radius: clamp(25px, 4.4vw, 48px);
+  background: radial-gradient(ellipse at 30% 16%, #ffffffa8, transparent 64%), linear-gradient(145deg, #e4ede9a8, #f4f4fa8f 55%, #d9ece0bc);
+  box-shadow: var(--glass-shadow);
+}
+.photo-art img { display: block; width: 95%; height: 97%; min-height: 0; object-fit: contain; filter: drop-shadow(0 15px 15px #36504736); }
+.photo-question { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 12px; margin: 0 12px 8px; }
+.photo-question label { font-size: 16px; font-weight: 700; }
+#photo-attempt { color: var(--muted); font-size: 13px; font-weight: 620; white-space: nowrap; }
+.photo-field { display: flex; align-items: center; gap: 8px; min-height: 62px; padding: 6px 8px 6px 18px; border: 1px solid var(--glass-rim); border-radius: 999px; background: var(--glass-control); box-shadow: var(--glass-shadow); }
+.photo-field:focus-within { border-color: #8bb997; }
+#photo-answer { min-width: 0; width: 100%; align-self: stretch; padding: 3px 2px; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: clamp(16px, 2vw, 21px); }
+#photo-answer::placeholder { color: #57706a; }
+.photo-submit { flex: none; gap: 8px; min-width: 49px; height: 46px; padding: 0 13px; }
+.photo-submit .icon { width: 22px; height: 22px; }
+.photo-response { margin: 10px 0 0; }
+.photo-response .find-feedback { padding: 10px 13px; font-size: 14px; }
+.photo-workspace .footer { padding-bottom: 0; }
+
+@media (max-width: 560px) {
+  .photo-heading { align-items: stretch; flex-direction: column; gap: 9px; margin-bottom: 12px; }
+  .photo-heading .lessons-link { min-height: 44px; margin-bottom: 2px; }
+  .photo-heading h1 { font-size: clamp(35px, 9.3vw, 47px); }
+  .photo-progress { display: grid; grid-template-columns: minmax(0, 1fr) minmax(81px, 38%); align-items: center; gap: 2px 9px; width: 100%; padding: 7px 9px; }
+  .photo-progress p, .photo-progress label { grid-column: 1; margin: 0; }
+  .photo-meter { grid-column: 2; grid-row: 1 / span 2; }
+  .photo-card-content { display: flex; flex-direction: column; }
+  .photo-art { width: 100%; height: clamp(155px, 32svh, 267px); margin-bottom: 11px; }
+  .photo-form { order: 2; }
+  .photo-response { order: 3; }
+  .photo-response:has(.find-feedback[data-kind="retry"]) { order: 1; margin: 0 0 8px; }
+  .photo-question { flex-wrap: wrap; margin-inline: 3px; }
+  .photo-question label { font-size: 14px; }
+  #photo-attempt { font-size: 12px; }
+  .photo-field { min-height: 55px; padding: 5px 6px 5px 12px; }
+  #photo-answer { scroll-margin-block: 12px; }
+  .photo-submit { height: 44px; }
+}
+
+@media (max-width: 560px) and (max-height: 530px) {
+  .photo-heading { gap: 6px; margin-bottom: 8px; }
+  .photo-heading h1 { font-size: 32px; }
+  .photo-art { height: clamp(114px, 27svh, 143px); margin-bottom: 8px; }
+}
