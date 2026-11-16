@@ -1,0 +1,74 @@
+.study-preview {
+  position: absolute;
+  inset: 10% 0 16%;
+  display: grid;
+  place-items: center;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.study-preview img {
+  display: block;
+  width: min(65%, 340px);
+  height: min(75%, 255px);
+  object-fit: contain;
+  filter: drop-shadow(0 12px 15px #3650472b);
+}
+
+.stage[data-model-loading] .study-preview {
+  visibility: visible;
+  opacity: 1;
+}
+
+.study-lesson .stage[data-model-loading] .loading {
+  inset: auto 12px 14%;
+  transform: none;
+}
+
+.study-lesson .stage[data-model-loading] #loading-message::after {
+  display: block;
+  width: 90px;
+  height: 3px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background: #d7e7dc linear-gradient(90deg, #91c09e, #5f9b70) no-repeat center / 38% 100%;
+  content: "";
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+
+  .masthead { view-transition-name: lesson-header; }
+  .study-card .lesson-art img,
+  .stage[data-model-loading] .study-preview img { view-transition-name: study-art; }
+
+  ::view-transition-group(root),
+  ::view-transition-group(lesson-header) { animation-duration: 300ms; }
+
+  ::view-transition-group(study-art) {
+    z-index: 1;
+    animation-duration: 460ms;
+    animation-timing-function: cubic-bezier(.22, 1, .36, 1);
+  }
+
+  ::view-transition-old(study-art),
+  ::view-transition-new(study-art) { object-fit: contain; }
+
+  .study-preview { transition: opacity 220ms ease-out, visibility 0s linear 220ms; }
+  .stage[data-model-loading] .study-preview { transition-delay: 0s; }
+  .study-lesson .organ-list:not(:empty),
+  .study-lesson .view-controls,
+  .study-lesson .context-controls { animation: lesson-reveal 210ms ease-out both; }
+  .study-lesson .stage[data-model-loading] #loading-message::after { animation: study-loading 1s ease-in-out infinite alternate; }
+
+  .study-card .lesson-art img,
+  .study-card .action-icon { transition: translate 180ms cubic-bezier(.2, .7, .3, 1); }
+  .study-card:is(:hover, :focus-within) .lesson-art img { translate: 0 -3px; }
+  .study-card:is(:hover, :focus-within) .action-icon { translate: 3px 0; }
+}
+
+@keyframes study-loading {
+  from { background-position: left center; }
+  to { background-position: right center; }
+}

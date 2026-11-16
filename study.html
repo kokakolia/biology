@@ -6,6 +6,7 @@
   <meta name="description" content="Интерактивный урок о пищеварительной системе для 8 класса.">
   <title>Изучи — Изнутри</title>
   <link rel="stylesheet" href="./styles.css?v=phone">
+  <link rel="stylesheet" href="./study-transition.css">
   <script type="importmap">
     {"imports":{"three":"./vendor/build/three.module.js","three/addons/":"./vendor/examples/jsm/"}}
   </script>
@@ -48,10 +49,13 @@
       </aside>
 
       <section class="viewer" aria-label="Интерактивная 3D-модель">
-        <div id="stage" class="stage" aria-busy="true">
+        <div id="stage" class="stage" aria-busy="true" data-model-loading>
           <header class="stage-header">
             <h2 data-section-text="sceneTitle">Органы пищеварения</h2>
           </header>
+          <div class="study-preview" aria-hidden="true">
+            <img src="./assets/lesson-study.webp" data-lesson-image="study" width="700" height="470" alt="">
+          </div>
           <div id="loading" class="loading">
             <p id="loading-message" role="status">Загружаем 3D-модель…</p>
             <button id="retry-model" class="lesson-button secondary" type="button" hidden>Повторить загрузку</button>

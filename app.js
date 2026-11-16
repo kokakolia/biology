@@ -286,6 +286,7 @@ function ensureScene() {
 async function loadScene() {
   loadingMessage.textContent = "Загружаем 3D-модель…";
   retryModel.hidden = true;
+  stage.toggleAttribute("data-model-loading", true);
   stage.setAttribute("aria-busy", "true");
   let viewerModule;
   try {
@@ -320,6 +321,8 @@ async function loadScene() {
     retryModel.hidden = Boolean(webglUnavailable);
     console.error(error);
     stage.setAttribute("aria-busy", "false");
+  } finally {
+    stage.removeAttribute("data-model-loading");
   }
 }
 
