@@ -29,7 +29,7 @@ export function createStudyProgress(ids, key) {
 
   return {
     parse, load, save, total,
-    unlockCount: total / 2,
-    percent: (count) => Math.round(count * 100 / total),
+    unlockCount: Math.max(1, total / 2),
+    percent: (count) => total ? Math.round(count * 100 / total) : 0,
   };
 }

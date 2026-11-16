@@ -132,7 +132,7 @@ export function createQuizProgress(partIds) {
 }
 
 export function quizPercent(count, total) {
-  return Math.round(count * 100 / total);
+  return total ? Math.round(count * 100 / total) : 0;
 }
 
 export const saveQuizProgress = writeProgress;

@@ -223,7 +223,10 @@ async function start() {
     }
     startFindLesson({ reset: resetScene, selected: () => viewer?.selected ?? null, setLocked: setSelectionLocked }, section, progressData);
   } else {
-    progress.max = study.total;
+    progress.max = Math.max(1, study.total);
+    if (!partIds.length) {
+      document.querySelector(".lesson-instruction").textContent = "В этом разделе пока нет деталей для изучения.";
+    }
     updateProgress();
     const inactive = document.querySelector("#lesson-inactive");
     const layout = document.querySelector(".layout");

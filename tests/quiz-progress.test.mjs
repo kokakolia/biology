@@ -276,3 +276,14 @@ test("a different section uses its own part IDs, answers and progress", (t) => {
   next.study.save(new Set(["select:wall"]));
   assert.deepEqual(study.load(), new Set(["select:stomach", "info:stomach"]));
 });
+
+test("an empty section shows zero progress and keeps quizzes locked", (t) => {
+  useStorage(t);
+  const empty = createSectionProgress({ id: "empty", parts: {} });
+  const marks = empty.study.load().size;
+  const credits = empty.quiz.load(empty.keys.find).credited.length;
+  assert.equal(empty.study.percent(marks), 0);
+  assert.equal(quizPercent(credits, empty.partIds.length), 0);
+  assert.ok(marks < empty.study.unlockCount);
+  assert.ok(credits < empty.findUnlockCount);
+});

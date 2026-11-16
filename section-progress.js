@@ -15,6 +15,6 @@ export function createSectionProgress(section) {
     keys, partIds,
     study: createStudyProgress(partIds, keys.study),
     quiz: createQuizProgress(partIds),
-    findUnlockCount: Math.ceil(partIds.length / 2),
+    findUnlockCount: Math.max(1, Math.ceil(partIds.length / 2)),
   };
 }
