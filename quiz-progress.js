@@ -5,16 +5,81 @@ export const photoProgressKey = "iznutri:photo-progress:v1";
 export const findUnlockCount = organIds.length / 2;
 export const attemptLimit = 2;
 
+const knownOrgans = new Set(organIds);
+
+function uniqueKnownIds(value) {
+  return Array.isArray(value) ? [...new Set(value.filter((id) => knownOrgans.has(id)))] : [];
+}
+
+function restoreTasks(value, maxAttempts) {
+  const seen = new Set();
+  const tasks = [];
+  for (const entry of value) {
+    const { id, attempts, answer, corrected } = entry ?? {};
+    if (!knownOrgans.has(id) || seen.has(id) || !Number.isInteger(attempts) || attempts < 0 || attempts > maxAttempts) continue;
+    seen.add(id);
+    const task = { id, attempts };
+    if (typeof answer === "string") task.answer = answer;
+    if (typeof corrected === "boolean") task.corrected = corrected;
+    tasks.push(task);
+  }
+  return tasks;
+}
+
+function restoreRun(saved, credited) {
+  if (!Array.isArray(saved?.queue) || !Array.isArray(saved.review)) return null;
+  const { phase } = saved;
+  const active = phase === "main" || phase === "review";
+  if (!active && phase !== "break" && phase !== "results") return null;
+  const practice = saved.practice === true;
+  if (practice && credited.length !== organIds.length) return null;
+
+  const queue = restoreTasks(saved.queue, attemptLimit);
+  const review = restoreTasks(saved.review, 0);
+  if (active !== Boolean(queue.length) || (phase === "break" && !review.length)) return null;
+  if ((phase === "review" || phase === "results") && review.length) return null;
+  if (review.some(({ id }) => queue.some((task) => task.id === id))) return null;
+  if (queue.slice(1).some(({ attempts }) => attempts === attemptLimit)) return null;
+
+  const task = queue[0];
+  const savedTask = saved.queue[0];
+  const sameTask = task?.id === savedTask?.id && task?.attempts === savedTask?.attempts;
+  const originalFeedback = sameTask ? saved.feedback : null;
+  let feedback = null;
+  if (task?.attempts) {
+    if (originalFeedback === "correct" && (task.attempts > 1 || credited.includes(task.id))) feedback = "correct";
+    else if (task.attempts < attemptLimit) feedback = "retry";
+    else if (originalFeedback === "missed") feedback = "missed";
+    else return null;
+  }
+
+  const firstTry = uniqueKnownIds(saved.firstTry).filter((id) => credited.includes(id));
+  const creditRounds = Object.fromEntries(firstTry
+    .map((id) => [id, saved.creditRounds?.[id]])
+    .filter(([, round]) => round === "main" || round === "review"));
+  const practiceCredits = practice ? uniqueKnownIds([...uniqueKnownIds(saved.practiceCredits), ...firstTry]) : [];
+  const removedTasks = saved.queue.length - queue.length;
+  const total = Number.isInteger(saved.total) && saved.total <= organIds.length
+    ? Math.max(queue.length, saved.total - removedTasks)
+    : queue.length;
+  return {
+    phase, practice, practiceCredits, total, queue, review, firstTry, creditRounds, feedback,
+    departed: active && saved.departed === "study" ? "study" : null,
+  };
+}
+
 export function loadQuizProgress(key) {
+  let saved;
   try {
-    const saved = JSON.parse(localStorage.getItem(key));
-    if (Array.isArray(saved?.credited) && saved.failures && typeof saved.failures === "object") {
-      return saved;
-    }
+    saved = JSON.parse(localStorage.getItem(key));
   } catch {
     // The test can still run with in-memory progress when storage is unavailable.
   }
-  return { credited: [], failures: {}, run: null };
+  const credited = uniqueKnownIds(saved?.credited);
+  const failures = Object.fromEntries(organIds
+    .map((id) => [id, saved?.failures?.[id]])
+    .filter(([, count]) => Number.isSafeInteger(count) && count >= 0));
+  return { credited, failures, run: restoreRun(saved?.run, credited) };
 }
 
 export function saveQuizProgress(key, state) {
