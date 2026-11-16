@@ -1,20 +1,20 @@
-import { activeLessonName, connectLessonActivity } from "./lesson-activity.js";
 import { startFindLesson } from "./find-lesson.js";
 import { createProgressNotice } from "./progress-notice.js";
-import { createTorsoViewer } from "./torso-viewer.js";
 import { sectionFromSearch, sectionHref } from "./sections.js";
 import { applySectionPage } from "./section-page.js";
 import { createSectionProgress } from "./section-progress.js";
 
 const section = sectionFromSearch(location.search);
 const progressData = createSectionProgress(section);
-const { keys, partIds, study, quiz } = progressData;
+const { keys, partIds, study } = progressData;
 
 const rows = new Map();
 
 const stage = document.querySelector("#stage");
 const isFind = document.body.classList.contains("find-lesson");
 const loading = document.querySelector("#loading");
+const loadingMessage = document.querySelector("#loading-message");
+const retryModel = document.querySelector("#retry-model");
 const selection = document.querySelector("#selection");
 const selectionName = document.querySelector("#selection-name");
 const info = document.querySelector("#info");
@@ -28,6 +28,7 @@ const progress = document.querySelector("#progress");
 const progressPercent = document.querySelector("#progress-percent");
 const marks = study.load();
 let viewer;
+let sceneLoad;
 let studySaveNotice;
 let selectionLocked = false;
 
@@ -40,7 +41,7 @@ function updateProgress() {
 function recordMark(mark) {
   if (marks.has(mark)) return;
   marks.add(mark);
-  studySaveNotice.write(keys.study, () => {
+  studySaveNotice.write(() => {
     const saved = study.save(marks);
     updateProgress();
     return saved;
@@ -148,7 +149,7 @@ function makeRows() {
   }
 }
 
-function makeSceneControls(config) {
+function makeViewControls(config) {
   const views = document.querySelector(".view-controls");
   for (const [id, { label }] of Object.entries(config.camera.views)) {
     if (!label) continue;
@@ -161,9 +162,24 @@ function makeSceneControls(config) {
     viewButtons.set(id, button);
   }
   views.hidden = !views.childElementCount;
+}
 
+async function loadLayerControls(config) {
+  if (!config.context) return;
   const layers = document.querySelector(".context-controls");
-  for (const [id, { label, icon }] of Object.entries(config.context?.controls ?? {})) {
+  try {
+    await viewer.loadContext();
+  } catch (error) {
+    const hint = document.createElement("p");
+    hint.className = "context-warning";
+    hint.setAttribute("role", "status");
+    hint.textContent = "Дополнительные слои не загрузились. Можно продолжить без них.";
+    layers.append(hint);
+    layers.hidden = false;
+    console.warn(error);
+    return;
+  }
+  for (const [id, { label, icon }] of Object.entries(config.context.controls ?? {})) {
     const visible = viewer.layerVisible(id);
     if (visible === undefined) continue;
     const button = document.createElement("button");
@@ -214,51 +230,57 @@ function attachEvents() {
   });
 }
 
-async function start() {
+function start() {
   applySectionPage(section, isFind ? "find" : "study");
+  retryModel.addEventListener("click", () => {
+    sceneLoad = undefined;
+    ensureScene();
+  });
   if (isFind) {
     if (marks.size < study.unlockCount) {
       location.replace(sectionHref(section, "home"));
       return;
     }
-    startFindLesson({ reset: resetScene, selected: () => viewer?.selected ?? null, setLocked: setSelectionLocked }, section, progressData);
-  } else {
-    progress.max = Math.max(1, study.total);
-    if (!partIds.length) {
-      document.querySelector(".lesson-instruction").textContent = "В этом разделе пока нет деталей для изучения.";
-    }
-    updateProgress();
-    const inactive = document.querySelector("#lesson-inactive");
-    const layout = document.querySelector(".layout");
-    studySaveNotice = createProgressNotice(() => activity.isActive());
-    const activity = connectLessonActivity(keys.activity, "study", (active) => {
-      inactive.hidden = active;
-      layout.inert = !active;
-      studySaveNotice.setActive(active);
-    });
-    function enterStudy() {
-      const previous = activeLessonName(keys.activity);
-      activity.claim();
-      if (previous === "find" || previous === "photo") {
-        studySaveNotice.write(keys[previous], () => quiz.pauseForStudy(keys[previous]));
-      }
-    }
-    enterStudy();
-    document.querySelector("#continue-here").addEventListener("click", enterStudy);
-    window.addEventListener("pageshow", (event) => {
-      if (!event.persisted) return;
-      enterStudy();
-      for (const mark of study.load()) marks.add(mark);
-      updateProgress();
-    });
+    startFindLesson({
+      reset: resetScene,
+      selected: () => viewer?.selected ?? null,
+      setLocked: setSelectionLocked,
+      ensureLoaded: ensureScene,
+    }, section, progressData);
+    return;
   }
+
+  progress.max = Math.max(1, study.total);
+  if (!partIds.length) {
+    document.querySelector(".lesson-instruction").textContent = "В этом разделе пока нет деталей для изучения.";
+  }
+  updateProgress();
+  studySaveNotice = createProgressNotice(() => true);
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) return;
+    for (const mark of study.load()) marks.add(mark);
+    updateProgress();
+  });
+  ensureScene();
+}
+
+function ensureScene() {
+  sceneLoad ??= loadScene();
+}
+
+async function loadScene() {
+  loadingMessage.textContent = "Загружаем 3D-модель…";
+  retryModel.hidden = true;
+  stage.setAttribute("aria-busy", "true");
+  let viewerModule;
   try {
     const config = {
       ...section.scene,
       label: section.scene.label ?? section.title,
       model: { ...section.scene.model, organs: section.parts },
     };
-    viewer = await createTorsoViewer(stage, config, {
+    viewerModule = await import("./torso-viewer.js");
+    viewer = await viewerModule.createTorsoViewer(stage, config, {
       ghostHidden: isFind,
       onPick(id) {
         if (!selectionLocked) selectOrgan(id);
@@ -269,13 +291,18 @@ async function start() {
         }
       },
     });
-    makeSceneControls(config);
+    makeViewControls(config);
     makeRows();
     setSelectionLocked(selectionLocked);
     attachEvents();
     loading.hidden = true;
+    void loadLayerControls(config);
   } catch (error) {
-    loading.textContent = "Не удалось открыть 3D-модель. Перезагрузи страницу и проверь поддержку WebGL 2 в браузере.";
+    const webglUnavailable = viewerModule && error instanceof viewerModule.WebGLStartError;
+    loadingMessage.textContent = webglUnavailable
+      ? "Не удалось запустить 3D. Открой урок в браузере с поддержкой WebGL 2."
+      : "Не удалось загрузить 3D-модель. Проверь соединение и повтори загрузку.";
+    retryModel.hidden = Boolean(webglUnavailable);
     console.error(error);
   } finally {
     stage.setAttribute("aria-busy", "false");

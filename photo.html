@@ -25,15 +25,17 @@
   </header>
 
   <main class="workspace photo-workspace" hidden>
-    <section id="lesson-inactive" class="lesson-inactive" aria-label="Урок на паузе" hidden>
-      <p>Другой урок или вкладка активны. Продолжи здесь, чтобы вернуться к заданию.</p>
-      <button class="lesson-button" type="button" id="continue-here">Продолжить здесь</button>
+    <section id="lesson-inactive" class="lesson-inactive" aria-label="Тест недоступен" hidden>
+      <p role="status"></p>
+      <button class="lesson-button" type="button" id="continue-here">Проверить снова</button>
+      <a class="lesson-button secondary" href="./" data-section-link="home">К урокам</a>
     </section>
     <section id="photo-task" aria-labelledby="photo-title" hidden>
       <header class="photo-heading">
         <div>
           <a class="lessons-link" href="./" data-section-link="home"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
           <h1 id="photo-title" data-section-text="photoTitle">Узнай по фото</h1>
+          <button class="quiz-study-link" type="button" data-study-current>Отложить и открыть «Изучи»</button>
         </div>
         <div class="photo-progress">
           <p id="photo-phase"></p>

@@ -31,9 +31,10 @@
   </header>
 
   <main class="workspace">
-    <section id="lesson-inactive" class="lesson-inactive" aria-label="Урок на паузе" hidden>
-      <p>Другой урок или вкладка активны. Продолжи здесь, чтобы вернуться к заданию.</p>
-      <button class="lesson-button" type="button" id="continue-here">Продолжить здесь</button>
+    <section id="lesson-inactive" class="lesson-inactive" aria-label="Тест недоступен" hidden>
+      <p role="status"></p>
+      <button class="lesson-button" type="button" id="continue-here">Проверить снова</button>
+      <a class="lesson-button secondary" href="./" data-section-link="home">К урокам</a>
     </section>
     <div class="layout find-layout" hidden>
       <aside class="panel" aria-labelledby="title">
@@ -41,6 +42,7 @@
           <a class="lessons-link" href="./" data-section-link="home"><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg>К урокам</a>
           <p class="lesson-topic" data-section-text="sectionTitle">Пищеварение</p>
           <h1 id="title" data-section-text="findTitle">Найди орган</h1>
+          <button class="quiz-study-link" type="button" data-study-current>Отложить и открыть «Изучи»</button>
         </header>
         <section class="task-card" aria-labelledby="find-prompt">
           <p id="find-phase" class="find-phase"></p>
@@ -63,7 +65,10 @@
           <header class="stage-header">
             <h2 data-section-text="sceneTitle">Органы пищеварения</h2>
           </header>
-          <div id="loading" class="loading" role="status">Загружаем 3D-модель…</div>
+          <div id="loading" class="loading">
+            <p id="loading-message" role="status">Загружаем 3D-модель…</p>
+            <button id="retry-model" class="lesson-button secondary" type="button" hidden>Повторить загрузку</button>
+          </div>
         </div>
         <div class="viewer-tools">
           <div class="view-controls" role="group" aria-label="Ракурс" hidden>

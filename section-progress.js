@@ -8,7 +8,6 @@ export function createSectionProgress(section) {
     study: `${prefix}:study-progress:v1`,
     find: `${prefix}:find-progress:v1`,
     photo: `${prefix}:photo-progress:v1`,
-    activity: `${prefix}:active-lesson`,
   };
 
   return {

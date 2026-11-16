@@ -46,6 +46,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid #377a53; outline-offs
 .lessons-link { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 13px; color: var(--green); font-size: 13px; font-weight: 650; text-decoration: none; }
 .lessons-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lessons-link .icon { width: 16px; height: 16px; }
+.quiz-study-link { display: block; width: fit-content; margin-top: 7px; padding: 5px 0; border: 0; background: transparent; color: var(--green); font-size: 13px; font-weight: 650; text-align: left; }
+.quiz-study-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lesson-topic { margin: 0 0 7px; color: var(--green); font-size: 14px; font-weight: 700; }
 h1 { margin: 0; font-size: clamp(42px, 4vw, 55px); font-weight: 750; line-height: 1; letter-spacing: -.058em; }
 .lesson-instruction { margin: 13px 0 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
@@ -94,6 +96,9 @@ progress::-moz-progress-bar { border-radius: 99px; background: linear-gradient(1
 .viewer-hint .icon { width: 17px; height: 17px; }
 .hint-touch { display: none; }
 .loading { position: absolute; inset: 50% 20px auto; transform: translateY(-50%); text-align: center; color: var(--muted); }
+.loading p { margin: 0; }
+.loading button { margin-top: 10px; }
+.context-warning { margin: 0; padding: 5px 9px; color: var(--muted); font-size: 12px; }
 
 .selection { position: absolute; z-index: 2; top: calc(24% - var(--viewer-hint-height) * .24); right: 22px; display: grid; gap: 8px; width: min(260px, 34%); }
 .selection-bar, .reference { border: 1px solid var(--glass-rim); border-radius: 19px; background: var(--glass-control); box-shadow: var(--glass-shadow); }
@@ -231,6 +236,7 @@ progress::-moz-progress-bar { border-radius: 99px; background: linear-gradient(1
   .layout .progress { order: 5; margin: 0 2px; padding-top: 9px; }
   .progress-heading { margin-bottom: 6px; }
   .lesson-inactive { flex-wrap: wrap; }
+  .quiz-study-link { min-height: 44px; margin-top: 0; }
   .lesson-button { min-height: 44px; }
   .footer { padding-block: 8px 13px; }
 }

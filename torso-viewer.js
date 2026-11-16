@@ -91,23 +91,8 @@ function attachPicking(canvas, camera, organs, onPick) {
   });
 }
 
-export async function createTorsoViewer(stage, config, { ghostHidden = false, onPick, onViewChange } = {}) {
-  const { model, context, camera: cameraConfig, label } = config;
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  const canvas = renderer.domElement;
-  canvas.setAttribute("aria-label", label);
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(cameraConfig.fieldOfView, 1, ...cameraConfig.clipping);
-  const anatomy = createAnatomy(model.transform);
-  scene.add(anatomy);
-  addLighting(scene);
-
-  const loader = new GLTFLoader();
-  const [{ scene: models }, contextModel] = await Promise.all([
-    loader.loadAsync(model.url),
-    context && loader.loadAsync(context.url),
-  ]);
-  const layers = contextModel ? await context.buildLayers(contextModel.scene) : {};
+async function loadOrgans(loader, model, ghostHidden) {
+  const { scene: models } = await loader.loadAsync(model.url);
   const organs = new Map();
   const partsGroup = new THREE.Group();
   for (const [id, { meshName = id, thumbnailAngle = .16 }] of Object.entries(model.organs)) {
@@ -128,10 +113,42 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
     organs.set(id, organ);
     partsGroup.attach(mesh);
   }
-  anatomy.add(partsGroup);
-  for (const layer of Object.values(layers)) anatomy.add(layer);
-  const thumbnails = renderThumbnails(renderer, anatomy, organs);
+  return { organs, partsGroup };
+}
 
+export class WebGLStartError extends Error {}
+
+export async function createTorsoViewer(stage, config, { ghostHidden = false, onPick, onViewChange } = {}) {
+  const { model, context, camera: cameraConfig, label } = config;
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  } catch (cause) {
+    throw new WebGLStartError("WebGL 2 could not start", { cause });
+  }
+  const canvas = renderer.domElement;
+  canvas.setAttribute("aria-label", label);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(cameraConfig.fieldOfView, 1, ...cameraConfig.clipping);
+  const anatomy = createAnatomy(model.transform);
+  scene.add(anatomy);
+  addLighting(scene);
+
+  const loader = new GLTFLoader();
+  let organs;
+  let thumbnails;
+  try {
+    const result = await loadOrgans(loader, model, ghostHidden);
+    organs = result.organs;
+    anatomy.add(result.partsGroup);
+    thumbnails = renderThumbnails(renderer, anatomy, organs);
+  } catch (error) {
+    renderer.dispose();
+    renderer.forceContextLoss();
+    throw error;
+  }
+
+  let layers = {};
   stage.prepend(canvas);
   const controls = new OrbitControls(camera, canvas);
   controls.enablePan = false;
@@ -205,6 +222,13 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
       render();
     },
     setView,
+    async loadContext() {
+      if (!context) return;
+      const { scene: contextScene } = await loader.loadAsync(context.url);
+      layers = await context.buildLayers(contextScene);
+      for (const layer of Object.values(layers)) anatomy.add(layer);
+      render();
+    },
     layerVisible: (name) => layers[name]?.visible,
     toggleLayer(name) {
       const layer = layers[name];

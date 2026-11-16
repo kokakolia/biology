@@ -26,7 +26,6 @@ export const digestiveSection = {
   copy: {
     sceneTitle: "Органы пищеварения",
     studyInstruction: "Выбери орган на торсе или в списке.",
-    studyPaused: "Другой урок или вкладка активны. Продолжи здесь, чтобы вернуться к торсу.",
     studyList: "Органы пищеварения",
     findList: "Видимость органов",
     layerGroup: "Слои тела",

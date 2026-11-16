@@ -1,13 +1,13 @@
-import { connectLessonActivity } from "./lesson-activity.js";
-import { createProgressNotice } from "./progress-notice.js";
+import { connectQuizPage } from "./quiz-page.js";
+import { sectionHref } from "./sections.js";
 import { quizFeedback, renderQuizProgress, renderQuizSummary } from "./quiz-ui.js";
 import {
-  answerQuizTask, attemptLimit, nextQuizTask, resumeQuizRun, saveQuizProgress, startQuizReview,
+  answerQuizTask, attemptLimit, nextQuizTask, startQuizReview,
 } from "./quiz-progress.js";
 
 export function startFindLesson(scene, section, { keys, partIds, quiz, findUnlockCount }) {
   const layout = document.querySelector(".find-layout");
-  const inactive = document.querySelector("#lesson-inactive");
+  const studyButton = document.querySelector("[data-study-current]");
   const summary = document.querySelector("#find-summary");
   const summaryTitle = document.querySelector("#summary-title");
   const reviewButton = document.querySelector("#start-review");
@@ -23,16 +23,7 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, findUnloc
   const progress = document.querySelector("#progress");
   const percent = document.querySelector("#progress-percent");
 
-  let state;
-  const saveNotice = createProgressNotice(() => activity.isActive());
-  const activity = connectLessonActivity(keys.activity, "find", (active) => {
-    inactive.hidden = active;
-    layout.inert = !active;
-    summary.inert = !active;
-    saveNotice.setActive(active);
-  });
-
-  function render({ focus = false } = {}) {
+  function render(state, { focus = false } = {}) {
     const { run } = state;
     const task = run.queue[0];
     layout.hidden = !task;
@@ -43,11 +34,13 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, findUnloc
       return;
     }
 
+    scene.ensureLoaded();
     const position = run.total - run.queue.length + 1;
     const reviewing = run.phase === "review";
     const correct = run.feedback === "correct";
     const missed = run.feedback === "missed";
     const complete = correct || missed;
+    studyButton.hidden = complete;
     phase.textContent = `${reviewing ? "Закрепление" : "Основной круг"} · ${position} из ${run.total}`;
     prompt.textContent = section.parts[task.id].prompt;
     attempt.textContent = `Попытка ${complete ? task.attempts : task.attempts + 1} из ${attemptLimit}`;
@@ -63,57 +56,28 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, findUnloc
     if (focus) prompt.focus();
   }
 
-  function commit(options) {
-    saveNotice.write(keys.find, () => saveQuizProgress(keys.find, state));
-    render(options);
-  }
-
-  function enter({ startNew = false } = {}) {
-    activity.claim();
-    state = quiz.load(keys.find);
-    if (!state.run || (startNew && state.run.phase === "results")) quiz.begin(state);
-    resumeQuizRun(state.run);
-    scene.reset();
-    commit();
-  }
+  const page = connectQuizPage(keys.find, quiz, {
+    taskView: layout, summary, render, reset: scene.reset, studyHref: sectionHref(section, "study"),
+  });
 
   function advance() {
-    nextQuizTask(state.run);
-    scene.reset();
-    commit({ focus: true });
+    page.change(({ run }) => nextQuizTask(run), { reset: true, focus: true });
   }
 
   confirm.addEventListener("click", () => {
-    if (!activity.isActive()) return;
-    if (state.run.feedback === "correct") {
+    if (!page.isActive()) return;
+    if (page.state.run.feedback === "correct") {
       advance();
     } else if (scene.selected()) {
-      answerQuizTask(state, scene.selected());
-      commit();
+      page.change((state) => answerQuizTask(state, scene.selected()));
       if (!next.hidden) next.focus();
     }
   });
-  next.addEventListener("click", () => {
-    if (activity.isActive()) advance();
-  });
+  next.addEventListener("click", advance);
   reviewButton.addEventListener("click", () => {
-    if (!activity.isActive()) return;
-    startQuizReview(state.run);
-    scene.reset();
-    commit({ focus: true });
+    page.change(({ run }) => startQuizReview(run), { reset: true, focus: true });
   });
   repeatButton.addEventListener("click", () => {
-    if (!activity.isActive()) return;
-    quiz.begin(state);
-    scene.reset();
-    commit({ focus: true });
+    page.change(quiz.begin, { reset: true, focus: true });
   });
-  document.querySelector("#continue-here").addEventListener("click", () => enter());
-  window.addEventListener("pageshow", (event) => {
-    if (event.persisted) enter();
-  });
-
-  const navigation = performance.getEntriesByType("navigation")[0]?.type;
-  enter({ startNew: navigation !== "reload" && navigation !== "back_forward" });
-  return activity;
 }

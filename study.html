@@ -32,10 +32,6 @@
   </header>
 
   <main class="workspace">
-    <section id="lesson-inactive" class="lesson-inactive" aria-label="Урок на паузе" hidden>
-      <p data-section-text="studyPaused">Другой урок или вкладка активны. Продолжи здесь, чтобы вернуться к торсу.</p>
-      <button class="lesson-button" type="button" id="continue-here">Продолжить здесь</button>
-    </section>
     <div class="layout">
       <aside class="panel" aria-labelledby="title">
         <header class="lesson-heading">
@@ -56,7 +52,10 @@
           <header class="stage-header">
             <h2 data-section-text="sceneTitle">Органы пищеварения</h2>
           </header>
-          <div id="loading" class="loading" role="status">Загружаем 3D-модель…</div>
+          <div id="loading" class="loading">
+            <p id="loading-message" role="status">Загружаем 3D-модель…</p>
+            <button id="retry-model" class="lesson-button secondary" type="button" hidden>Повторить загрузку</button>
+          </div>
         </div>
         <div class="viewer-tools">
           <div class="view-controls" role="group" aria-label="Ракурс" hidden>

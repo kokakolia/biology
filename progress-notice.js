@@ -18,24 +18,30 @@ export function createProgressNotice(canRetry) {
   status.setAttribute("role", "status");
   main.prepend(notice, status);
 
-  const pending = new Map();
+  let pending;
 
-  function write(key, save) {
-    const hadFailure = pending.size > 0;
-    if (save()) pending.delete(key);
-    else pending.set(key, save);
-    const hasFailure = pending.size > 0;
-    notice.hidden = !hasFailure;
-    if (hadFailure !== hasFailure) status.textContent = hasFailure ? warning : "Прогресс сохранён.";
+  function write(save, failureMessage = warning) {
+    const hadFailure = Boolean(pending);
+    pending = save() ? undefined : { save, failureMessage };
+    notice.hidden = !pending;
+    if (pending && (message.textContent !== failureMessage || !hadFailure)) {
+      message.textContent = status.textContent = failureMessage;
+    } else if (hadFailure && !pending) {
+      status.textContent = "Прогресс сохранён.";
+    }
   }
 
   retry.addEventListener("click", () => {
-    if (!canRetry()) return;
-    for (const [key, save] of [...pending]) write(key, save);
+    if (pending && canRetry()) write(pending.save, pending.failureMessage);
   });
 
   return {
     write,
+    clear() {
+      pending = undefined;
+      notice.hidden = true;
+      status.textContent = "";
+    },
     setActive(active) { retry.disabled = !active; },
   };
 }

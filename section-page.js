@@ -5,7 +5,6 @@ export function applySectionPage(section, page) {
   const text = {
     sceneTitle: title,
     studyInstruction: "Выбери часть модели или её название в списке.",
-    studyPaused: "Другой урок или вкладка активны. Продолжи здесь, чтобы вернуться к модели.",
     studyList: "Части модели",
     findList: "Видимость частей модели",
     layerGroup: "Слои модели",

@@ -1,12 +1,10 @@
 import { sectionFromSearch, sectionHref } from "./sections.js";
 import { applySectionPage } from "./section-page.js";
 import { createSectionProgress } from "./section-progress.js";
-import { connectLessonActivity } from "./lesson-activity.js";
-import { createProgressNotice } from "./progress-notice.js";
+import { connectQuizPage } from "./quiz-page.js";
 import { createPhotoAnswerMatcher, normalizePhotoAnswer } from "./photo-answer.js";
 import {
-  answerQuizTask, attemptLimit, nextQuizTask,
-  resumeQuizRun, saveQuizProgress, startQuizReview,
+  answerQuizTask, attemptLimit, nextQuizTask, startQuizReview,
 } from "./quiz-progress.js";
 import { quizFeedback, renderQuizProgress, renderQuizSummary } from "./quiz-ui.js";
 
@@ -19,7 +17,7 @@ function startPhotoLesson() {
   const taskView = document.querySelector("#photo-task");
   const summary = document.querySelector("#photo-summary");
   const summaryTitle = document.querySelector("#summary-title");
-  const inactive = document.querySelector("#lesson-inactive");
+  const studyButton = document.querySelector("[data-study-current]");
   const phase = document.querySelector("#photo-phase");
   const attempt = document.querySelector("#photo-attempt");
   const percent = document.querySelector("#photo-percent");
@@ -32,16 +30,7 @@ function startPhotoLesson() {
   const feedback = document.querySelector("#photo-feedback");
   const next = document.querySelector("#next-task");
 
-  let state;
-  const saveNotice = createProgressNotice(() => activity.isActive());
-  const activity = connectLessonActivity(keys.activity, "photo", (active) => {
-    inactive.hidden = active;
-    taskView.inert = !active;
-    summary.inert = !active;
-    saveNotice.setActive(active);
-  });
-
-  function render({ focus = false } = {}) {
+  function render(state, { focus = false } = {}) {
     const { run } = state;
     const task = run.queue[0];
     taskView.hidden = !task;
@@ -55,6 +44,7 @@ function startPhotoLesson() {
     const correct = run.feedback === "correct";
     const missed = run.feedback === "missed";
     const complete = correct || missed;
+    studyButton.hidden = complete;
     const position = run.total - run.queue.length + 1;
     phase.textContent = `${run.phase === "review" ? "Закрепление" : "Основной круг"} · ${position} из ${run.total}`;
     attempt.textContent = `Попытка ${complete ? task.attempts : task.attempts + 1} из ${attemptLimit}`;
@@ -75,38 +65,23 @@ function startPhotoLesson() {
     if (focus) input.focus();
   }
 
-  function save() {
-    saveNotice.write(keys.photo, () => saveQuizProgress(keys.photo, state));
-  }
-
-  function commit(options) {
-    save();
-    render(options);
-  }
-
-  function enter({ startNew = false } = {}) {
-    activity.claim();
-    state = quiz.load(keys.photo);
-    if (!state.run || (startNew && state.run.phase === "results")) quiz.begin(state);
-    resumeQuizRun(state.run);
-    commit();
-  }
+  const page = connectQuizPage(keys.photo, quiz, {
+    taskView, summary, render, studyHref: sectionHref(section, "study"),
+  });
 
   function advance() {
-    nextQuizTask(state.run);
-    commit({ focus: true });
+    page.change(({ run }) => nextQuizTask(run), { focus: true });
   }
 
   input.addEventListener("input", () => {
-    if (!activity.isActive() || input.readOnly) return;
+    if (!page.isActive() || input.readOnly) return;
     input.setCustomValidity("");
-    state.run.queue[0].answer = input.value;
-    save();
+    page.change(({ run }) => { run.queue[0].answer = input.value; }, { render: false });
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!activity.isActive()) return;
-    const { run } = state;
+    if (!page.isActive()) return;
+    const { run } = page.state;
     if (run.feedback === "correct") {
       advance();
       return;
@@ -120,10 +95,11 @@ function startPhotoLesson() {
 
     const task = run.queue[0];
     const match = matchPhotoAnswer(input.value);
-    task.answer = input.value;
-    task.corrected = match.corrected && match.id === task.id;
-    answerQuizTask(state, match.id);
-    commit();
+    page.change((state) => {
+      task.answer = input.value;
+      task.corrected = match.corrected && match.id === task.id;
+      answerQuizTask(state, match.id);
+    });
     if (run.feedback === "correct") submit.focus();
     else if (run.feedback === "missed") next.focus();
     else {
@@ -131,26 +107,13 @@ function startPhotoLesson() {
       input.select();
     }
   });
-  next.addEventListener("click", () => {
-    if (activity.isActive()) advance();
-  });
+  next.addEventListener("click", advance);
   document.querySelector("#start-review").addEventListener("click", () => {
-    if (!activity.isActive()) return;
-    startQuizReview(state.run);
-    commit({ focus: true });
+    page.change(({ run }) => startQuizReview(run), { focus: true });
   });
   document.querySelector("#repeat-photo").addEventListener("click", () => {
-    if (!activity.isActive()) return;
-    quiz.begin(state);
-    commit({ focus: true });
+    page.change(quiz.begin, { focus: true });
   });
-  document.querySelector("#continue-here").addEventListener("click", () => enter());
-  window.addEventListener("pageshow", (event) => {
-    if (event.persisted) enter();
-  });
-
-  const navigation = performance.getEntriesByType("navigation")[0]?.type;
-  enter({ startNew: navigation !== "reload" && navigation !== "back_forward" });
   document.querySelector("main").hidden = false;
 }
 

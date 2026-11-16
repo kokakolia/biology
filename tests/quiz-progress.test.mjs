@@ -3,8 +3,9 @@ import test from "node:test";
 import { createPhotoAnswerMatcher } from "../photo-answer.js";
 import { digestiveSection, sectionFromSearch, sectionHref } from "../sections.js";
 import { createSectionProgress } from "../section-progress.js";
+import { createQuizSession } from "../quiz-session.js";
 import {
-  answerQuizTask, nextQuizTask, quizPercent, resumeQuizRun, saveQuizProgress, startQuizReview,
+  answerQuizTask, moveQuizTaskToStudy, nextQuizTask, quizPercent, saveQuizProgress, startQuizReview,
 } from "../quiz-progress.js";
 
 const { keys, partIds, quiz, study } = createSectionProgress(digestiveSection);
@@ -24,6 +25,22 @@ function useStorage(t) {
     if (original) Object.defineProperty(globalThis, "localStorage", original);
     else delete globalThis.localStorage;
   });
+}
+
+function testLocks() {
+  const held = new Set();
+  return {
+    async request(key, { ifAvailable }, callback) {
+      assert.equal(ifAvailable, true);
+      if (held.has(key)) return callback(null);
+      held.add(key);
+      try {
+        return await callback({ name: key });
+      } finally {
+        held.delete(key);
+      }
+    },
+  };
 }
 
 test("missing queue restarts the run with saved credit and failures", (t) => {
@@ -79,7 +96,6 @@ test("normal reopening preserves the question, draft and attempts", (t) => {
   task.answer = "черновик";
   saveQuizProgress(keys.photo, state);
   const reopened = quiz.load(keys.photo);
-  resumeQuizRun(reopened.run);
   assert.deepEqual(reopened, state);
   assert.equal(reopened.run.feedback, "retry");
   assert.equal(reopened.run.queue[0].attempts, 1);
@@ -99,10 +115,9 @@ test("returning from study moves main tasks and preserves review attempts", (t) 
   quiz.begin(state);
   const { id } = state.run.queue[0];
   answerQuizTask(state, null);
+  moveQuizTaskToStudy(state.run);
   saveQuizProgress(keys.find, state);
-  quiz.pauseForStudy(keys.find);
   state = quiz.load(keys.find);
-  resumeQuizRun(state.run);
   assert.deepEqual(state.run.review, [{ id, attempts: 0 }]);
   while (state.run.queue.length) {
     answerQuizTask(state, state.run.queue[0].id);
@@ -114,10 +129,9 @@ test("returning from study moves main tasks and preserves review attempts", (t) 
   startQuizReview(state.run);
   assert.deepEqual(state.run.queue, [{ id, attempts: 0 }]);
   answerQuizTask(state, null);
+  moveQuizTaskToStudy(state.run);
   saveQuizProgress(keys.find, state);
-  quiz.pauseForStudy(keys.find);
   state = quiz.load(keys.find);
-  resumeQuizRun(state.run);
   assert.equal(state.run.queue[0].attempts, 1);
 });
 
@@ -215,20 +229,86 @@ test("quiz keeps the latest in-memory attempt when a write fails", (t) => {
   assert.deepEqual(quiz.load(keys.photo), state);
 });
 
-test("moving a task to study reports storage failure until it can be saved", (t) => {
+test("an old study marker cannot move a task during ordinary reopening", (t) => {
   useStorage(t);
   const state = quiz.load(keys.find);
   quiz.begin(state);
+  answerQuizTask(state, null);
+  const task = { ...state.run.queue[0] };
+  state.run.departed = "study";
   saveQuizProgress(keys.find, state);
+  const reopened = quiz.load(keys.find);
+  assert.deepEqual(reopened.run.queue[0], task);
+  assert.equal(reopened.run.feedback, "retry");
+  assert.deepEqual(reopened.run.review, []);
+});
+
+test("only one tab opens the same quiz and it keeps an unsaved answer", async (t) => {
+  useStorage(t);
+  const locks = testLocks();
+  for (const key of [keys.find, keys.photo]) {
+    const first = createQuizSession(key, quiz, locks);
+    const second = createQuizSession(key, quiz, locks);
+    assert.equal(await first.open(), "active");
+    assert.equal(first.save(), true);
+    const { id } = first.state.run.queue[0];
+
+    const write = t.mock.method(localStorage, "setItem", () => { throw new Error("Quota exceeded"); });
+    assert.ok(first.edit((state) => answerQuizTask(state, id)));
+    assert.equal(first.save(), false);
+    assert.equal(await second.open(), "busy");
+    assert.equal(second.isActive(), false);
+    assert.equal(second.save(), false);
+    assert.equal(await first.open(), "active");
+    assert.deepEqual(first.state.credited, [id]);
+    assert.deepEqual(quiz.load(key).credited, []);
+
+    write.mock.restore();
+    assert.equal(first.save(), true);
+    first.close();
+    await Promise.resolve();
+    assert.equal(await second.open(), "active");
+    assert.equal(second.state.run.feedback, "correct");
+    assert.deepEqual(second.state.credited, [id]);
+    second.close();
+  }
+});
+
+test("closing during lock acquisition cannot start a quiz in the background", async (t) => {
+  useStorage(t);
+  const locks = testLocks();
+  let grant;
+  const delayed = {
+    async request(...args) {
+      await new Promise((resolve) => { grant = resolve; });
+      return locks.request(...args);
+    },
+  };
+  const session = createQuizSession(keys.find, quiz, delayed);
+  const opening = session.open();
+  session.close();
+  grant();
+  assert.equal(await opening, "closed");
+  assert.equal(session.isActive(), false);
+  assert.equal(quiz.load(keys.find).run, null);
+});
+
+test("moving a task to study only changes the quiz after a successful write", async (t) => {
+  useStorage(t);
+  const session = createQuizSession(keys.find, quiz, testLocks());
+  assert.equal(await session.open(), "active");
+  session.edit((state) => answerQuizTask(state, null));
+  assert.equal(session.save(), true);
+  const { id } = session.state.run.queue[0];
   const write = t.mock.method(localStorage, "setItem", () => { throw new Error("Quota exceeded"); });
-  assert.equal(quiz.pauseForStudy(keys.find), false);
-  assert.equal(quiz.load(keys.find).run.departed, null);
+  assert.equal(session.moveToStudy(), false);
+  assert.deepEqual(session.state.run.queue[0], { id, attempts: 1 });
+  assert.deepEqual(quiz.load(keys.find).run.queue[0], { id, attempts: 1 });
   write.mock.restore();
-  const read = t.mock.method(localStorage, "getItem", () => { throw new Error("Storage is disabled"); });
-  assert.equal(quiz.pauseForStudy(keys.find), false);
-  read.mock.restore();
-  assert.equal(quiz.pauseForStudy(keys.find), true);
-  assert.equal(quiz.load(keys.find).run.departed, "study");
+  assert.equal(session.moveToStudy(), true);
+  assert.notEqual(quiz.load(keys.find).run.queue[0].id, id);
+  assert.deepEqual(quiz.load(keys.find).run.review, [{ id, attempts: 0 }]);
+  session.close();
 });
 
 test("photo answers accept familiar names and a unique typo", () => {
@@ -247,7 +327,6 @@ test("digestion retains its original URLs and storage keys", () => {
     study: "iznutri:study-progress:v1",
     find: "iznutri:find-progress:v1",
     photo: "iznutri:photo-progress:v1",
-    activity: "iznutri:active-lesson",
   });
 });
 
@@ -262,7 +341,7 @@ test("a different section uses its own part IDs, answers and progress", (t) => {
   assert.equal(sectionHref(section, "home"), "./?section=test-section");
   assert.equal(next.findUnlockCount, 2);
   assert.equal(next.study.total, 6);
-  assert.notEqual(next.keys.activity, keys.activity);
+  assert.notEqual(next.keys.find, keys.find);
   study.save(new Set(["select:stomach", "info:stomach"]));
   saveQuizProgress(keys.find, { credited: ["stomach"], failures: {}, run: null });
   assert.equal(next.study.load().size, 0);

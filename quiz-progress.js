@@ -62,7 +62,6 @@ export function createQuizProgress(partIds) {
       : queue.length;
     return {
       phase, practice, practiceCredits, total, queue, review, firstTry, creditRounds, feedback,
-      departed: active && saved.departed === "study" ? "study" : null,
     };
   }
 
@@ -111,24 +110,10 @@ export function createQuizProgress(partIds) {
       firstTry: [],
       creditRounds: {},
       feedback: null,
-      departed: null,
     };
   }
 
-  function pauseForStudy(key) {
-    let state;
-    try {
-      state = readQuizProgress(key);
-    } catch {
-      return false;
-    }
-    const run = state.run;
-    if (!run?.queue.length || run.departed === "study") return true;
-    run.departed = "study";
-    return writeProgress(key, state);
-  }
-
-  return { load, begin, pauseForStudy };
+  return { load, begin };
 }
 
 export function quizPercent(count, total) {
@@ -182,10 +167,8 @@ export function startQuizReview(run) {
   run.feedback = run.queue[0]?.attempts ? "retry" : null;
 }
 
-export function resumeQuizRun(run) {
-  const returningFromStudy = run.departed === "study";
-  run.departed = null;
-  if (!returningFromStudy || !run.queue.length) return;
+export function moveQuizTaskToStudy(run) {
+  if (!run.queue.length) return;
   if (run.feedback === "correct" || run.feedback === "missed") {
     nextQuizTask(run);
     return;
