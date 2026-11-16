@@ -297,7 +297,6 @@ async function loadScene() {
     };
     viewerModule = await import("./torso-viewer.js");
     viewer = await viewerModule.createTorsoViewer(stage, config, {
-      ghostHidden: isFind,
       onPick(id) {
         if (!selectionLocked) selectOrgan(id);
       },

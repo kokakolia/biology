@@ -104,7 +104,7 @@ function loadModel(loader, asset) {
   return loader.loadAsync((loader.meshoptDecoder && asset.compressedUrl) || asset.url);
 }
 
-async function loadOrgans(loader, model, ghostHidden) {
+async function loadOrgans(loader, model) {
   const { scene: models } = await loadModel(loader, model);
   const organs = new Map();
   const partsGroup = new THREE.Group();
@@ -116,13 +116,10 @@ async function loadOrgans(loader, model, ghostHidden) {
     material.emissive.set(material.userData.displayColor ?? material.color);
     material.emissiveIntensity = 0;
     mesh.material = material;
-    const organ = { mesh, material, thumbnailAngle, thumbnail: thumbnail ?? photo, removed: false };
-    if (ghostHidden) {
-      organ.ghost = material.clone();
-      organ.ghost.transparent = true;
-      organ.ghost.opacity = .21;
-      organ.ghost.depthWrite = false;
-    }
+    const ghost = material.clone();
+    ghost.transparent = true;
+    ghost.depthWrite = false;
+    const organ = { mesh, material, ghost, thumbnailAngle, thumbnail: thumbnail ?? photo, removed: false };
     organs.set(id, organ);
     partsGroup.attach(mesh);
   }
@@ -131,7 +128,7 @@ async function loadOrgans(loader, model, ghostHidden) {
 
 export class WebGLStartError extends Error {}
 
-export async function createTorsoViewer(stage, config, { ghostHidden = false, onPick, onViewChange, onContextChange } = {}) {
+export async function createTorsoViewer(stage, config, { onPick, onViewChange, onContextChange } = {}) {
   const { model, context, camera: cameraConfig, label } = config;
   let renderer;
   try {
@@ -157,7 +154,7 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
   let organs;
   let thumbnails;
   try {
-    const result = await loadOrgans(loader, model, ghostHidden);
+    const result = await loadOrgans(loader, model);
     if (!isReady()) throw new Error("WebGL context was lost during model loading");
     organs = result.organs;
     anatomy.add(result.partsGroup);
@@ -181,6 +178,8 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
   let homeDistance = cameraConfig.distance;
   let selected = null;
   let viewFrame = 0;
+  let visibilityFrame = 0;
+  const fades = new Map();
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function render() {
@@ -249,16 +248,50 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
 
   function setSelection(id) {
     if (id === selected || (id !== null && (!organs.has(id) || organs.get(id).removed))) return;
-    if (selected) organs.get(selected).material.emissiveIntensity = 0;
+    if (selected) highlight(organs.get(selected), 0);
     selected = id;
-    if (id) organs.get(id).material.emissiveIntensity = .45;
+    if (id) highlight(organs.get(id), .45);
     render();
   }
 
+  function highlight(organ, intensity) {
+    organ.material.emissiveIntensity = intensity;
+    organ.ghost.emissiveIntensity = intensity;
+  }
+
+  function finishVisibility(organ, opacity) {
+    organ.ghost.opacity = opacity;
+    organ.mesh.material = organ.removed ? organ.ghost : organ.material;
+    fades.delete(organ);
+  }
+
+  function animateVisibility(now) {
+    for (const [organ, { from, to, start }] of fades) {
+      const progress = Math.min(1, (now - start) / 240);
+      if (progress === 1 || reducedMotion.matches) {
+        finishVisibility(organ, to);
+      } else {
+        const eased = progress * progress * (3 - 2 * progress);
+        organ.ghost.opacity = THREE.MathUtils.lerp(from, to, eased);
+      }
+    }
+    render();
+    visibilityFrame = fades.size ? requestAnimationFrame(animateVisibility) : 0;
+  }
+
   function updateVisibility(organ, visible) {
+    if (organ.removed === !visible) return;
     organ.removed = !visible;
-    organ.mesh.visible = visible || ghostHidden;
-    organ.mesh.material = !visible && ghostHidden ? organ.ghost : organ.material;
+    const from = organ.mesh.material.opacity;
+    const to = organ.material.opacity * (visible ? 1 : .21);
+    if (reducedMotion.matches || !isReady() || from === to) {
+      finishVisibility(organ, to);
+      return;
+    }
+    organ.ghost.opacity = from;
+    organ.mesh.material = organ.ghost;
+    fades.set(organ, { from, to, start: performance.now() });
+    if (!visibilityFrame) visibilityFrame = requestAnimationFrame(animateVisibility);
   }
 
   controls.addEventListener("change", () => {
@@ -275,6 +308,9 @@ export async function createTorsoViewer(stage, config, { ghostHidden = false, on
     event.preventDefault();
     contextLost = true;
     cancelViewAnimation();
+    cancelAnimationFrame(visibilityFrame);
+    visibilityFrame = 0;
+    for (const [organ, { to }] of fades) finishVisibility(organ, to);
     controls.enabled = false;
     onContextChange?.(false);
   });
