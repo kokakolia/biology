@@ -6,7 +6,7 @@ import { createSectionProgress } from "./section-progress.js";
 
 const section = sectionFromSearch(location.search);
 const progressData = createSectionProgress(section);
-const { keys, partIds, study } = progressData;
+const { partIds, study } = progressData;
 
 const rows = new Map();
 
@@ -224,8 +224,8 @@ function attachEvents() {
     }
   });
   window.addEventListener("storage", (event) => {
-    if (event.key !== keys.study) return;
-    for (const mark of study.parse(event.newValue)) marks.add(mark);
+    if (!study.matchesKey(event.key)) return;
+    for (const mark of study.load()) marks.add(mark);
     updateProgress();
   });
 }
@@ -244,6 +244,7 @@ function start() {
     startFindLesson({
       reset: resetScene,
       selected: () => viewer?.selected ?? null,
+      clearSelection: () => selectOrgan(null),
       setLocked: setSelectionLocked,
       ensureLoaded: ensureScene,
     }, section, progressData);

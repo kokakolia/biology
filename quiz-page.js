@@ -9,6 +9,7 @@ export function connectQuizPage(key, quiz, { taskView, summary, render, reset, s
   const notice = createProgressNotice(session.isActive);
   const study = document.querySelector("[data-study-current]");
   const save = () => notice.write(session.save);
+  let retryOptions;
 
   async function enter(options) {
     if (session.isActive()) return;
@@ -26,14 +27,18 @@ export function connectQuizPage(key, quiz, { taskView, summary, render, reset, s
     taskView.hidden = summary.hidden = true;
     notice.setActive(false);
     status.hidden = false;
+    retryOptions = result === "read-failed" ? options : undefined;
     message.textContent = result === "busy"
       ? "Тест уже открыт в другой вкладке. Вернись к ней, чтобы продолжить."
-      : "Для запуска теста открой сайт по HTTPS или через localhost в современном браузере.";
-    retry.hidden = result !== "busy";
+      : result === "read-failed"
+        ? "Не удалось прочитать сохранённый прогресс. Повтори загрузку, чтобы продолжить тест."
+        : "Для запуска теста открой сайт по HTTPS или через localhost в современном браузере.";
+    retry.textContent = result === "read-failed" ? "Повторить загрузку" : "Проверить снова";
+    retry.hidden = result !== "busy" && result !== "read-failed";
     retry.disabled = false;
   }
 
-  retry.addEventListener("click", () => enter());
+  retry.addEventListener("click", () => enter(retryOptions));
   study.addEventListener("click", () => {
     if (!session.isActive()) return;
     notice.write(() => {

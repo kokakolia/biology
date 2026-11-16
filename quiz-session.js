@@ -23,7 +23,12 @@ export function createQuizSession(key, quiz, locks = globalThis.navigator?.locks
           resolve("busy");
           return;
         }
-        state = quiz.load(key);
+        try {
+          state = quiz.read(key);
+        } catch {
+          resolve("read-failed");
+          return;
+        }
         dirty = !state.run || (startNew && state.run.phase === "results");
         if (dirty) quiz.begin(state);
         const hold = new Promise((finish) => { release = finish; });

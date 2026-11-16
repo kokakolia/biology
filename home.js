@@ -59,5 +59,5 @@ function renderProgress() {
 renderProgress();
 window.addEventListener("pageshow", renderProgress);
 window.addEventListener("storage", (event) => {
-  if (event.key === keys.study || event.key === keys.find || event.key === keys.photo || event.key === null) renderProgress();
+  if (study.matchesKey(event.key) || event.key === keys.find || event.key === keys.photo || event.key === null) renderProgress();
 });

@@ -64,12 +64,17 @@ export function startFindLesson(scene, section, { keys, partIds, quiz, findUnloc
     page.change(({ run }) => nextQuizTask(run), { reset: true, focus: true });
   }
 
-  confirm.addEventListener("click", () => {
-    if (!page.isActive()) return;
+  confirm.addEventListener("click", (event) => {
+    if (!page.isActive() || event.detail > 1) return;
     if (page.state.run.feedback === "correct") {
       advance();
-    } else if (scene.selected()) {
-      page.change((state) => answerQuizTask(state, scene.selected()));
+    } else {
+      const selected = scene.selected();
+      if (!selected) return;
+      page.change((state) => {
+        answerQuizTask(state, selected);
+        if (state.run.feedback === "retry") scene.clearSelection();
+      });
       if (!next.hidden) next.focus();
     }
   });

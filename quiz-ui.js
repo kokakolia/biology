@@ -44,7 +44,7 @@ export function renderQuizSummary(summary, state, section, nextThreshold) {
   repeatButton.hidden = reviewing;
   summaryStudy.hidden = reviewing || count === total;
   const summaryNext = summary.querySelector("#summary-next");
-  if (summaryNext) summaryNext.hidden = reviewing || count < nextThreshold;
+  if (summaryNext) summaryNext.hidden = reviewing || state.credited.length < nextThreshold;
   summaryList.hidden = reviewing;
   if (reviewing) return;
 

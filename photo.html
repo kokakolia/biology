@@ -49,7 +49,11 @@
 
       <div class="photo-card-content">
         <div class="photo-art">
-          <img id="organ-photo" width="700" height="470" alt="Орган для определения" data-section-alt="photoAlt">
+          <img id="organ-photo" width="700" height="470" alt="Орган для определения" data-section-alt="photoAlt" hidden>
+          <div id="photo-load" class="photo-load">
+            <p id="photo-load-message" role="status">Загружаем изображение…</p>
+            <button id="retry-photo" class="lesson-button secondary" type="button" hidden>Повторить загрузку</button>
+          </div>
         </div>
         <form id="photo-form" class="photo-form" autocomplete="off">
           <div class="photo-question">

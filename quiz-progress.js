@@ -113,7 +113,7 @@ export function createQuizProgress(partIds) {
     };
   }
 
-  return { load, begin };
+  return { read: readQuizProgress, load, begin };
 }
 
 export function quizPercent(count, total) {

@@ -198,6 +198,37 @@ test("unavailable or malformed storage starts with empty progress", (t) => {
   assert.deepEqual(quiz.load(keys.photo), empty);
 });
 
+test("a transient quiz read failure cannot replace previously saved progress", async (t) => {
+  useStorage(t);
+  const state = { credited: ["liver"], failures: {}, run: null };
+  quiz.begin(state);
+  answerQuizTask(state, null);
+  saveQuizProgress(keys.find, state);
+
+  const read = localStorage.getItem;
+  const original = read(keys.find);
+  let fail = true;
+  t.mock.method(localStorage, "getItem", (key) => {
+    if (key === keys.find && fail) {
+      fail = false;
+      throw new Error("Temporary read failure");
+    }
+    return read(key);
+  });
+  const write = t.mock.method(localStorage, "setItem");
+  const session = createQuizSession(keys.find, quiz, testLocks());
+  assert.equal(await session.open(), "read-failed");
+  assert.equal(session.isActive(), false);
+  assert.equal(session.save(), false);
+  assert.equal(write.mock.callCount(), 0);
+  assert.equal(read(keys.find), original);
+
+  assert.equal(await session.open(), "active");
+  assert.deepEqual(session.state, state);
+  session.close();
+  assert.equal(write.mock.callCount(), 0);
+});
+
 test("study reports a write failure and retries without losing marks", (t) => {
   useStorage(t);
   localStorage.setItem(keys.study, JSON.stringify(["select:liver"]));
@@ -211,6 +242,27 @@ test("study reports a write failure and retries without losing marks", (t) => {
   localStorage.setItem(keys.study, JSON.stringify(["select:liver", "info:liver"]));
   assert.equal(study.save(marks), true);
   assert.deepEqual(study.load(), new Set(["select:stomach", "select:liver", "info:liver"]));
+});
+
+test("interleaved study writes preserve marks from both tabs", (t) => {
+  useStorage(t);
+  const first = new Set(["select:stomach", "info:stomach", "select:liver"]);
+  const second = new Set(["info:liver", "select:esophagus", "info:esophagus"]);
+  const write = localStorage.setItem;
+  let interleaved = false;
+  t.mock.method(localStorage, "setItem", (key, value) => {
+    if (!interleaved) {
+      interleaved = true;
+      assert.ok(study.save(second));
+    }
+    write(key, value);
+  });
+
+  assert.ok(study.save(first));
+  assert.deepEqual(study.load(), new Set([...first, ...second]));
+  assert.equal(study.load().size, study.unlockCount);
+  assert.equal(study.matchesKey(`${keys.study}:select:liver`), true);
+  assert.equal(study.matchesKey(`${keys.study}:select:unknown`), false);
 });
 
 test("quiz keeps the latest in-memory attempt when a write fails", (t) => {

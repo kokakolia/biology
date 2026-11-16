@@ -21,6 +21,9 @@
   box-shadow: var(--glass-shadow);
 }
 .photo-art img { display: block; width: 95%; height: 97%; min-height: 0; object-fit: contain; filter: drop-shadow(0 15px 15px #36504736); }
+.photo-load { padding: 10px; color: var(--muted); text-align: center; }
+.photo-load p { margin: 0; font-size: 14px; }
+.photo-load button { margin-top: 8px; }
 .photo-question { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 12px; margin: 0 12px 8px; }
 .photo-question label { font-size: 16px; font-weight: 700; }
 #photo-attempt { color: var(--muted); font-size: 13px; font-weight: 620; white-space: nowrap; }

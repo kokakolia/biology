@@ -22,13 +22,51 @@ function startPhotoLesson() {
   const attempt = document.querySelector("#photo-attempt");
   const percent = document.querySelector("#photo-percent");
   const progress = document.querySelector("#photo-progress");
-  const image = document.querySelector("#organ-photo");
+  let image = document.querySelector("#organ-photo");
+  const photoLoad = document.querySelector("#photo-load");
+  const photoMessage = document.querySelector("#photo-load-message");
+  const retryPhoto = document.querySelector("#retry-photo");
   const form = document.querySelector("#photo-form");
   const input = document.querySelector("#photo-answer");
   const submit = document.querySelector("#photo-submit");
   const submitLabel = document.querySelector("#photo-submit-label");
   const feedback = document.querySelector("#photo-feedback");
   const next = document.querySelector("#next-task");
+  let photoSource;
+  let photoState = "loading";
+
+  function updateAnswerControls(run) {
+    const correct = run.feedback === "correct";
+    const missed = run.feedback === "missed";
+    input.readOnly = correct || missed || photoState !== "ready";
+    input.required = !input.readOnly;
+    submit.disabled = missed || (!correct && photoState !== "ready");
+  }
+
+  function showPhotoState(state, run) {
+    photoState = state;
+    image.hidden = state !== "ready";
+    photoLoad.hidden = state === "ready";
+    retryPhoto.hidden = state !== "failed";
+    photoMessage.textContent = state === "failed" ? "Изображение не загрузилось." : "Загружаем изображение…";
+    updateAnswerControls(run);
+  }
+
+  function loadPhoto(source, run) {
+    photoSource = source;
+    const requested = image.cloneNode(false);
+    requested.removeAttribute("src");
+    image.replaceWith(requested);
+    image = requested;
+    showPhotoState("loading", run);
+    requested.addEventListener("load", () => {
+      if (image === requested) showPhotoState("ready", page.state.run);
+    });
+    requested.addEventListener("error", () => {
+      if (image === requested) showPhotoState("failed", page.state.run);
+    });
+    requested.src = source;
+  }
 
   function render(state, { focus = false } = {}) {
     const { run } = state;
@@ -50,14 +88,12 @@ function startPhotoLesson() {
     attempt.textContent = `Попытка ${complete ? task.attempts : task.attempts + 1} из ${attemptLimit}`;
     renderQuizProgress(progress, percent, state, partIds.length);
     const organ = section.parts[task.id];
-    if (image.getAttribute("src") !== organ.photo) image.src = organ.photo;
+    if (photoSource !== organ.photo) loadPhoto(organ.photo, run);
     input.value = task.answer ?? "";
     input.setCustomValidity("");
-    input.readOnly = complete;
-    input.required = !complete;
+    updateAnswerControls(run);
     submit.setAttribute("aria-label", correct ? "Дальше" : "Проверить ответ");
     submitLabel.hidden = !correct;
-    submit.disabled = missed;
     next.hidden = !missed;
     feedback.dataset.kind = run.feedback ?? "";
     const correctedName = task.corrected ? organ.name.toLocaleLowerCase("ru-RU") : undefined;
@@ -73,6 +109,9 @@ function startPhotoLesson() {
     page.change(({ run }) => nextQuizTask(run), { focus: true });
   }
 
+  retryPhoto.addEventListener("click", () => {
+    if (page.isActive() && photoState === "failed") loadPhoto(photoSource, page.state.run);
+  });
   input.addEventListener("input", () => {
     if (!page.isActive() || input.readOnly) return;
     input.setCustomValidity("");
@@ -86,7 +125,7 @@ function startPhotoLesson() {
       advance();
       return;
     }
-    if (run.feedback === "missed") return;
+    if (run.feedback === "missed" || photoState !== "ready") return;
     if (!normalizePhotoAnswer(input.value)) {
       input.setCustomValidity(section.copy?.photoRequired ?? "Введи название.");
       input.reportValidity();
